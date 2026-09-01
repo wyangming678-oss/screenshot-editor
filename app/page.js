@@ -663,8 +663,8 @@ export default function Home() {
     <main className="app-shell">
       <header className="top-header">
         <div className="brand-mark">SE</div>
-        <div className="brand-copy"><h1>截图界面修改工具</h1><p>状态栏 · 底部导航栏 · 原图分辨率导出</p></div>
-        <div className="privacy-pill"><span /> 图片仅在当前浏览器处理</div>
+        <div className="brand-copy"><h1>VERDO界面修改工具</h1><p>VERDO平台截图修改神器</p></div>
+        <div className="privacy-pill"><span /> 在线处理图片</div>
       </header>
 
       <section className="workspace">
@@ -716,7 +716,7 @@ export default function Home() {
                 <SelectField label="信号组合位置" value={config.iconPosition} options={[["right","右侧"],["left","左侧"]]} onChange={(v) => patch("iconPosition", v)} />
                 <Range label="图标大小" value={config.iconScale} min={60} max={160} step={5} suffix="%" onChange={(v) => patch("iconScale", v)} />
               </div>
-              <SelectField label="网络类型" value={config.network} options={["5G","4G","LTE","隐藏"]} onChange={(v) => patch("network", v)} />
+              <SelectField label="网络类型" value={config.network} options={["⁵ᴳ","⁴","LTE","隐藏"]} onChange={(v) => patch("network", v)} />
               <Range label="信号强度" value={config.signalBars} min={0} max={4} onChange={(v) => patch("signalBars", v)} />
               {config.wifi && <Range label="Wi-Fi 强度" value={config.wifiStrength} min={0} max={3} onChange={(v) => patch("wifiStrength", v)} />}
               <Range label="剩余电量" value={config.battery} min={1} max={100} suffix="%" onChange={(v) => patch("battery", v)} />
