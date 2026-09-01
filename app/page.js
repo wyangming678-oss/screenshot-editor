@@ -8,6 +8,8 @@ const DEFAULT_CONFIG = {
   topColor: "#0b0d12",
   topOpacity: 72,
   iconColor: "#ffffff",
+  iconScale: 100,
+  iconPosition: "right",
   time: "16:01",
   timePosition: "left",
   timeX: 7,
@@ -41,6 +43,16 @@ const NOTICE_OPTIONS = [
   ["sms", "短信"], ["uber", "Uber"], ["facebook", "Facebook"],
   ["instagram", "Instagram"],
 ];
+
+const APP_NOTICE_COLORS = {
+  telegram: "#2aabee",
+  amazon: "#ff9900",
+  tiktok: "#fe2c55",
+  sms: "#34c759",
+  uber: "#555555",
+  facebook: "#1877f2",
+  instagram: "#e1306c",
+};
 
 function roundedRect(ctx, x, y, width, height, radius) {
   const r = Math.min(radius, width / 2, height / 2);
@@ -87,6 +99,24 @@ function drawSignal(ctx, x, cy, scale, bars, color) {
     ctx.fill();
   }
   ctx.globalAlpha = 1;
+}
+
+function networkTypeWidth(type, scale) {
+  if (type === "隐藏") return 0;
+  return (type === "LTE" ? 17 : 14.5) * scale;
+}
+
+function drawNetworkType(ctx, type, x, cy, scale, color) {
+  if (type === "隐藏") return;
+  const width = networkTypeWidth(type, scale);
+  const fontSize = type === "LTE" ? 8.1 : 8.9;
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.font = `700 ${fontSize * scale}px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(type, x + width / 2, cy + 0.25 * scale);
+  ctx.restore();
 }
 
 function drawWifi(ctx, x, cy, scale, color, strength) {
@@ -251,6 +281,8 @@ function drawEraseStrokes(ctx, strokes, w, h, c) {
   if (!strokes.length) return;
   const scale = Math.max(.62, w / 390);
   ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
   ctx.beginPath();
   ctx.rect(0, 0, w, h * c.topHeight / 100);
   ctx.clip();
@@ -275,11 +307,11 @@ function drawEraseStrokes(ctx, strokes, w, h, c) {
   ctx.restore();
 }
 
-function drawTop(ctx, img, w, h, c, strokes, customNoticeImage) {
+function drawTop(ctx, img, w, h, c, customNoticeImage) {
   const th = h * c.topHeight / 100;
   const scale = Math.max(0.62, w / 390);
+  const iconScale = scale * Math.max(0.6, Math.min(1.6, (c.iconScale || 100) / 100));
   coverRegion(ctx, img, 0, 0, w, th, c.topStyle, c.topColor, c.topOpacity);
-  if (c.topStyle === "manual") drawEraseStrokes(ctx, strokes, w, h, c);
   const cy = th / 2 + 0.5 * scale;
   ctx.fillStyle = c.iconColor;
   ctx.font = `600 ${15 * scale}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
@@ -295,28 +327,38 @@ function drawTop(ctx, img, w, h, c, strokes, customNoticeImage) {
     ctx.fillText(c.time || "00:00", w * c.timeX / 100, cy);
   }
 
-  let x = w - 8 * scale;
-  x -= 24.5 * scale;
-  drawBattery(ctx, x, cy, scale, c.battery, c.iconColor, c.batteryNumber);
-  x -= 8.5 * scale;
-  if (c.network !== "隐藏") {
-    ctx.font = `650 ${9.5 * scale}px system-ui, sans-serif`;
-    ctx.textAlign = "right";
-    ctx.fillStyle = c.iconColor;
-    ctx.fillText(c.network, x, cy + 0.2 * scale);
-    x -= (c.network.length * 6.2 + 4) * scale;
-  }
-  if (c.wifi) {
-    x -= 7 * scale;
-    drawWifi(ctx, x, cy, scale, c.iconColor, c.wifiStrength);
-    x -= 11 * scale;
-  }
-  x -= 13 * scale;
-  drawSignal(ctx, x, cy, scale, c.signalBars, c.iconColor);
   const notices = (c.notificationIcons || []).slice(0, 5);
+  let noticeX = 8 * iconScale;
+  if (c.timePosition === "left") {
+    ctx.font = `600 ${15 * scale}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+    noticeX = Math.max(noticeX, w * c.timeX / 100 + ctx.measureText(c.time || "00:00").width + 8 * iconScale);
+  }
   for (const notice of notices) {
-    x -= 15 * scale;
-    drawNotice(ctx, notice, x, cy, scale, c.iconColor, customNoticeImage);
+    noticeX += 7.5 * iconScale;
+    drawNotice(ctx, notice, noticeX, cy, iconScale, APP_NOTICE_COLORS[notice] || c.iconColor, customNoticeImage);
+    noticeX += 7.5 * iconScale;
+  }
+
+  const batteryX = w - 8 * iconScale - 24.5 * iconScale;
+  drawBattery(ctx, batteryX, cy, iconScale, c.battery, c.iconColor, c.batteryNumber);
+
+  const networkWidth = networkTypeWidth(c.network, iconScale);
+  const connectivityWidth = (c.wifi ? 18 * iconScale : 0) + 17 * iconScale + networkWidth;
+  const drawConnectivity = (startX) => {
+    let x = startX;
+    if (c.wifi) {
+      drawWifi(ctx, x + 7 * iconScale, cy, iconScale, c.iconColor, c.wifiStrength);
+      x += 18 * iconScale;
+    }
+    drawSignal(ctx, x, cy, iconScale, c.signalBars, c.iconColor);
+    x += 17 * iconScale;
+    drawNetworkType(ctx, c.network, x, cy, iconScale, c.iconColor);
+  };
+
+  if (c.iconPosition === "left") {
+    drawConnectivity(noticeX + 7 * iconScale);
+  } else {
+    drawConnectivity(batteryX - 8.5 * iconScale - connectivityWidth);
   }
 }
 
@@ -451,7 +493,8 @@ function renderCanvas(canvas, img, config, strokes = [], customNoticeImage = nul
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(img, 0, 0);
   if (!originalOnly) {
-    drawTop(ctx, img, canvas.width, canvas.height, config, strokes, customNoticeImage);
+    drawEraseStrokes(ctx, strokes, canvas.width, canvas.height, config);
+    drawTop(ctx, img, canvas.width, canvas.height, config, customNoticeImage);
     drawBottom(ctx, img, canvas.width, canvas.height, config);
   }
 }
@@ -648,8 +691,8 @@ export default function Home() {
               <div className="section-title"><span>手动消除</span><em>ERASER</em></div>
               <div className="erase-card">
                 <div className="tool-buttons">
-                  <button disabled={!image} className={eraseMode === "brush" ? "active" : ""} onClick={() => { patch("topStyle", "manual"); setEraseMode("brush"); }}>消除笔</button>
-                  <button disabled={!image} className={eraseMode === "picker" ? "active" : ""} onClick={() => { patch("topStyle", "manual"); setEraseMode("picker"); }}>从图片取色</button>
+                  <button disabled={!image} className={eraseMode === "brush" ? "active" : ""} onClick={() => setEraseMode("brush")}>消除笔</button>
+                  <button disabled={!image} className={eraseMode === "picker" ? "active" : ""} onClick={() => setEraseMode("picker")}>从图片取色</button>
                   <button className={eraseMode === "off" ? "active" : ""} onClick={() => setEraseMode("off")}>关闭</button>
                 </div>
                 <label className="color-field"><span>消除颜色</span><input type="color" value={config.eraseColor} onChange={(e) => patch("eraseColor", e.target.value)} /></label>
@@ -658,7 +701,7 @@ export default function Home() {
                   <button disabled={!eraseStrokes.length} onClick={() => setEraseStrokes((s) => s.slice(0, -1))}>撤销上一笔</button>
                   <button disabled={!eraseStrokes.length} onClick={() => setEraseStrokes([])}>清空消除</button>
                 </div>
-                {eraseMode !== "off" && <p>{eraseMode === "picker" ? "请点击截图顶部，吸取原图颜色" : "请在截图顶部按住并拖动进行消除"}</p>}
+                {eraseMode !== "off" && <p>{eraseMode === "picker" ? "请点击截图顶部，吸取原图颜色" : "请在原图顶部按住并拖动，覆盖原有内容"}</p>}
               </div>
 
               <div className="section-title"><span>时间</span><em>TIME</em></div>
@@ -669,6 +712,10 @@ export default function Home() {
               {config.timePosition !== "center" && <Range label="边缘距离" value={config.timeX} min={2} max={25} suffix="%" onChange={(v) => patch("timeX", v)} />}
 
               <div className="section-title"><span>状态图标</span><em>STATUS</em></div>
+              <div className="field-pair">
+                <SelectField label="信号组合位置" value={config.iconPosition} options={[["right","右侧"],["left","左侧"]]} onChange={(v) => patch("iconPosition", v)} />
+                <Range label="图标大小" value={config.iconScale} min={60} max={160} step={5} suffix="%" onChange={(v) => patch("iconScale", v)} />
+              </div>
               <SelectField label="网络类型" value={config.network} options={["5G","4G","LTE","隐藏"]} onChange={(v) => patch("network", v)} />
               <Range label="信号强度" value={config.signalBars} min={0} max={4} onChange={(v) => patch("signalBars", v)} />
               {config.wifi && <Range label="Wi-Fi 强度" value={config.wifiStrength} min={0} max={3} onChange={(v) => patch("wifiStrength", v)} />}
@@ -677,7 +724,7 @@ export default function Home() {
                 <Toggle label="显示 Wi-Fi" checked={config.wifi} onChange={(v) => patch("wifi", v)} />
                 <Toggle label="电池内数字" checked={config.batteryNumber} onChange={(v) => patch("batteryNumber", v)} />
               </div>
-              <label className="color-field"><span>图标颜色</span><input type="color" value={config.iconColor} onChange={(e) => patch("iconColor", e.target.value)} /></label>
+              <SelectField label="系统图标颜色" value={config.iconColor} options={[["#ffffff","白色"],["#000000","黑色"]]} onChange={(v) => patch("iconColor", v)} />
 
               <div className="section-title"><span>通知图标</span><em>最多 5 个</em></div>
               <div className="notice-grid">
