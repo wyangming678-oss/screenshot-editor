@@ -89,13 +89,16 @@ function coverRegion(ctx, img, x, y, w, h, style, color, opacity) {
 }
 
 function drawSignal(ctx, x, cy, scale, bars, color) {
+  // 真机标准: 4格信号，总宽约17.2*scale，高11*scale，符合iOS/Android规范
   ctx.fillStyle = color;
-  const bw = 2.15 * scale;
-  const gap = 1.35 * scale;
+  const barWidth = 3.05 * scale;
+  const gap = 1.65 * scale;
+  const heights = [3.6, 6.0, 8.4, 11.0];
   for (let i = 0; i < 4; i += 1) {
-    const bh = (3.3 + i * 2.25) * scale;
+    const bh = heights[i] * scale;
     ctx.globalAlpha = i < bars ? 1 : 0.28;
-    roundedRect(ctx, x + i * (bw + gap), cy + 5 * scale - bh, bw, bh, 0.8 * scale);
+    // 底部对齐，顶部圆角
+    roundedRect(ctx, x + i * (barWidth + gap), cy + 5.4 * scale - bh, barWidth, bh, 0.9 * scale);
     ctx.fill();
   }
   ctx.globalAlpha = 1;
@@ -120,39 +123,47 @@ function drawNetworkType(ctx, type, x, cy, scale, color) {
 }
 
 function drawWifi(ctx, x, cy, scale, color, strength) {
+  // 真机标准: Wi-Fi 3层弧+圆点，总宽约15*scale，总高约10*scale，线宽1.45符合系统图标
   ctx.strokeStyle = color;
   ctx.lineCap = "round";
-  ctx.lineWidth = 1.55 * scale;
-  [[7, 3], [4.8, 2], [2.4, 1]].forEach(([r, level]) => {
+  ctx.lineJoin = "round";
+  ctx.lineWidth = 1.45 * scale;
+  const arcs = [
+    [7.2, 3],
+    [5.0, 2],
+    [2.85, 1],
+  ];
+  for (const [r, level] of arcs) {
     ctx.globalAlpha = strength >= level ? 1 : 0.22;
     ctx.beginPath();
-    ctx.arc(x, cy + 3.4 * scale, r * scale, Math.PI * 1.22, Math.PI * 1.78);
+    ctx.arc(x, cy + 3.8 * scale, r * scale, Math.PI * 1.21, Math.PI * 1.79);
     ctx.stroke();
-  });
+  }
   ctx.globalAlpha = 1;
   ctx.fillStyle = color;
   ctx.globalAlpha = strength > 0 ? 1 : 0.22;
   ctx.beginPath();
-  ctx.arc(x, cy + 5 * scale, 1.25 * scale, 0, Math.PI * 2);
+  ctx.arc(x, cy + 5.4 * scale, 1.35 * scale, 0, Math.PI * 2);
   ctx.fill();
   ctx.globalAlpha = 1;
 }
 
 function drawBattery(ctx, x, cy, scale, value, color, showNumber) {
-  const w = 22 * scale;
-  const h = 10.5 * scale;
+  // 真机标准: 电池 24.2*11.2，圆角3.2，符合iPhone 15/ Android 13规范
+  const w = 24.2 * scale;
+  const h = 11.2 * scale;
   ctx.strokeStyle = color;
-  ctx.lineWidth = 1.2 * scale;
-  ctx.globalAlpha = 0.85;
-  roundedRect(ctx, x, cy - h / 2, w, h, 2.5 * scale);
+  ctx.lineWidth = 1.15 * scale;
+  ctx.globalAlpha = 0.9;
+  roundedRect(ctx, x, cy - h / 2, w, h, 3.2 * scale);
   ctx.stroke();
   ctx.fillStyle = color;
-  roundedRect(ctx, x + w + 1.25 * scale, cy - 2.5 * scale, 1.9 * scale, 5 * scale, 0.7 * scale);
+  roundedRect(ctx, x + w + 1.35 * scale, cy - 3.0 * scale, 1.85 * scale, 6.0 * scale, 0.9 * scale);
   ctx.fill();
   ctx.globalAlpha = 1;
-  const inner = Math.max(1.5, (w - 3.2 * scale) * Math.max(0, Math.min(100, value)) / 100);
-  ctx.fillStyle = value <= 20 ? "#ff4d58" : color;
-  roundedRect(ctx, x + 1.6 * scale, cy - h / 2 + 1.6 * scale, inner, h - 3.2 * scale, 1.35 * scale);
+  const inner = Math.max(1.5, (w - 3.4 * scale) * Math.max(0, Math.min(100, value)) / 100);
+  ctx.fillStyle = value <= 20 ? "#ff3b30" : color;
+  roundedRect(ctx, x + 1.7 * scale, cy - h / 2 + 1.7 * scale, inner, h - 3.4 * scale, 1.6 * scale);
   ctx.fill();
   if (showNumber) {
     ctx.fillStyle = value > 45 ? (color === "#ffffff" ? "#111318" : "#ffffff") : color;
@@ -339,19 +350,24 @@ function drawTop(ctx, img, w, h, c, customNoticeImage) {
     noticeX += 7.5 * iconScale;
   }
 
-  const batteryX = w - 8 * iconScale - 24.5 * iconScale;
+  const batteryW = 24.2 * iconScale;
+  const batteryX = w - 9 * iconScale - batteryW - 1.85 * iconScale;
   drawBattery(ctx, batteryX, cy, iconScale, c.battery, c.iconColor, c.batteryNumber);
 
   const networkWidth = networkTypeWidth(c.network, iconScale);
-  const connectivityWidth = (c.wifi ? 18 * iconScale : 0) + 17 * iconScale + networkWidth;
+  // 正常手机尺寸: Wi-Fi 16.2 + 间隙4.2 + 信号17.2 + 间隙4.5 + 网络文字
+  const WIFI_W = c.wifi ? 16.2 * iconScale : 0;
+  const SIGNAL_W = 17.2 * iconScale;
+  const GAP = 4.2 * iconScale;
+  const connectivityWidth = WIFI_W + (c.wifi ? GAP : 0) + SIGNAL_W + (networkWidth ? GAP : 0) + networkWidth;
   const drawConnectivity = (startX) => {
     let x = startX;
     if (c.wifi) {
-      drawWifi(ctx, x + 7 * iconScale, cy, iconScale, c.iconColor, c.wifiStrength);
-      x += 18 * iconScale;
+      drawWifi(ctx, x + 7.5 * iconScale, cy, iconScale, c.iconColor, c.wifiStrength);
+      x += WIFI_W + GAP;
     }
     drawSignal(ctx, x, cy, iconScale, c.signalBars, c.iconColor);
-    x += 17 * iconScale;
+    x += SIGNAL_W + (networkWidth ? GAP : 0);
     drawNetworkType(ctx, c.network, x, cy, iconScale, c.iconColor);
   };
 
