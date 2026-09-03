@@ -71,7 +71,7 @@ const DEFAULT_CONFIG = {
   battery: 87,
   showBatteryIcon: true,
   batteryNumber: true,
-  batteryStyle: "inside",
+  batteryStyle: "huawei-number",
   powerSave: false,
   notificationIcons: [],
   eraseColor: "#111317",
@@ -92,7 +92,22 @@ const ICON_OPTIONS = [
   ["chat", "消息"], ["phone", "电话"], ["camera", "相机"], ["heart", "收藏"],
 ];
 
+const BATTERY_STYLE_OPTIONS = [
+  { id: "samsung-pill", brand: "Samsung One UI", detail: "数字胶囊" },
+  { id: "huawei-number", brand: "华为 / 荣耀", detail: "框内数字" },
+  { id: "xiaomi-bar", brand: "小米 / Redmi", detail: "横向电量槽" },
+  { id: "pixel-compact", brand: "Google Pixel", detail: "紧凑横向" },
+  { id: "motorola-vertical", brand: "Motorola", detail: "竖向电池" },
+  { id: "percent", brand: "纯数字", detail: "仅显示百分比" },
+];
+
 const PHONE_MODEL_GROUPS = [
+  {
+    brand: "Apple iPhone",
+    models: [
+      { id: "iphone-17-pro-max", name: "iPhone 17 Pro Max", width: 1320, height: 2868, platform: "ios", screenShape: "rounded", cornerRadius: 64, dynamicIsland: true },
+    ],
+  },
   {
     brand: "Google Pixel",
     models: [
@@ -174,8 +189,8 @@ const PHONE_MODEL_GROUPS = [
 const NETWORK_OPTIONS = ["5G+", "5G", "4G+", "4G", "LTE", "H+", "3G", "E"];
 
 const PANEL_NAV_ITEMS = [
-  { id: "model", number: "01", label: "手机型号" },
-  { id: "upload", number: "02", label: "上传截图" },
+  { id: "upload", number: "01", label: "上传截图" },
+  { id: "model", number: "02", label: "屏幕外形" },
   { id: "erase-tool", number: "03", label: "消除笔", tab: "erase" },
   { id: "top-area", number: "04", label: "状态栏背景", tab: "top" },
   { id: "top-time", number: "05", label: "时间", tab: "top" },
@@ -184,7 +199,11 @@ const PANEL_NAV_ITEMS = [
   { id: "top-components", number: "08", label: "单个图标", tab: "top" },
   { id: "top-custom", number: "09", label: "自定义图标", tab: "top" },
   { id: "bottom-style", number: "10", label: "底部导航", tab: "bottom" },
+  { id: "saved-schemes", number: "11", label: "保存方案" },
 ];
+
+const SCHEME_STORAGE_KEY = "screenshot-editor-schemes-v1";
+const MAX_SAVED_SCHEMES = 12;
 
 const PHONE_MODELS = PHONE_MODEL_GROUPS.flatMap((group) =>
   group.models.map((model) => ({ ...model, brand: group.brand })),
@@ -195,29 +214,18 @@ function phoneRatio(model) {
 }
 
 function phoneSpec(model) {
-  return `真实屏幕 ${model.width} × ${model.height}px · ${phoneRatio(model)}`;
+  const shape = screenCornerRadius(model) > 0 ? "圆角屏" : "直角屏";
+  const island = model.dynamicIsland ? " · 自动灵动岛" : "";
+  return `真实屏幕 ${model.width} × ${model.height}px · ${phoneRatio(model)} · ${shape}${island}`;
 }
 
-function fitImageToPhone(source, model) {
-  const canvas = document.createElement("canvas");
-  canvas.width = model.width;
-  canvas.height = model.height;
-  const ctx = canvas.getContext("2d", { alpha: false });
-  const targetRatio = model.width / model.height;
-  const sourceRatio = source.naturalWidth / source.naturalHeight;
-  let baseWidth = source.naturalWidth;
-  let baseHeight = source.naturalHeight;
-  if (sourceRatio > targetRatio) {
-    baseWidth = source.naturalHeight * targetRatio;
-  } else if (sourceRatio < targetRatio) {
-    baseHeight = source.naturalWidth / targetRatio;
-  }
-  const sx = Math.max(0, (source.naturalWidth - baseWidth) / 2);
-  const sy = Math.max(0, (source.naturalHeight - baseHeight) / 2);
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(source, sx, sy, baseWidth, baseHeight, 0, 0, model.width, model.height);
-  return canvas.toDataURL("image/png");
+function screenCornerRadius(model, width = model?.width || 0) {
+  if (!model || model.screenShape === "square" || model.id?.startsWith("reference-")) return 0;
+  if (Number.isFinite(model.cornerRadius)) return model.cornerRadius * width / model.width;
+  if (model.id?.includes("ultra")) return width * .018;
+  if (model.brand === "Motorola") return width * .052;
+  if (model.brand === "Xiaomi / Redmi / POCO") return width * .038;
+  return width * .043;
 }
 
 function roundedRect(ctx, x, y, width, height, radius) {
@@ -448,12 +456,28 @@ function drawStatusWifi(ctx, x, cy, scale, color, strength, style, showArrows = 
   if (showArrows && style !== "iphone") drawTrafficArrows(ctx, x + (compact ? 12 : 18.5) * scale, cy + 7.5 * scale, scale * .62, color);
 }
 
-function batteryGraphicWidth(style, showNumber, scale, powerSave = false) {
-  if (style === "percent") return 34 * scale;
-  if (style === "vertical") return (showNumber ? 48 : 15) * scale;
-  if (style === "external") return (showNumber ? 59 : 36) * scale;
-  if (powerSave && showNumber) return 59 * scale;
-  return 38 * scale;
+function normalizedBatteryStyle(style) {
+  const legacyStyles = {
+    inside: "huawei-number",
+    solid: "xiaomi-bar",
+    external: "pixel-compact",
+    vertical: "motorola-vertical",
+  };
+  return legacyStyles[style] || style || "huawei-number";
+}
+
+function batteryUsesInsideNumber(style) {
+  return ["samsung-pill", "huawei-number"].includes(normalizedBatteryStyle(style));
+}
+
+function batteryGraphicWidth(style, scale) {
+  const normalized = normalizedBatteryStyle(style);
+  if (normalized === "samsung-pill") return 33 * scale;
+  if (normalized === "huawei-number") return 37 * scale;
+  if (normalized === "xiaomi-bar") return 33 * scale;
+  if (normalized === "pixel-compact") return 29 * scale;
+  if (normalized === "motorola-vertical") return 14 * scale;
+  return 0;
 }
 
 function drawBatteryLeaf(ctx, centerX, cy, scale, color) {
@@ -473,82 +497,119 @@ function drawBatteryLeaf(ctx, centerX, cy, scale, color) {
   ctx.restore();
 }
 
-function drawStatusBattery(ctx, x, cy, scale, value, color, showNumber, style, powerSave) {
+function drawStatusBattery(ctx, x, cy, scale, value, color, showNumber, style) {
   const safe = Math.max(0, Math.min(100, Number(value) || 0));
   const chargeColor = safe <= 20 ? "#ef3948" : color;
+  const normalized = normalizedBatteryStyle(style);
   ctx.save();
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   ctx.textBaseline = "middle";
-  if (style === "percent") {
-    ctx.font = `650 ${13.5 * scale}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
-    ctx.textAlign = "left";
-    ctx.fillText(`${safe}%`, x, cy + .2 * scale);
+  if (normalized === "percent") {
     ctx.restore();
     return;
   }
-  if (style === "vertical") {
-    const bw = 10 * scale;
-    const bh = 17 * scale;
-    ctx.lineWidth = 1.35 * scale;
-    roundedRect(ctx, x, cy - bh / 2, bw, bh, 1.35 * scale);
-    ctx.stroke();
-    roundedRect(ctx, x + 2.8 * scale, cy - bh / 2 - 2.5 * scale, 4.4 * scale, 2.3 * scale, .5 * scale);
-    ctx.fill();
-    const fillH = Math.max(1.3 * scale, (bh - 3.6 * scale) * safe / 100);
-    ctx.fillStyle = chargeColor;
-    roundedRect(ctx, x + 1.8 * scale, cy + bh / 2 - 1.8 * scale - fillH, bw - 3.6 * scale, fillH, .65 * scale);
+
+  if (normalized === "samsung-pill") {
+    const bw = 31 * scale;
+    const bh = 15.5 * scale;
+    ctx.fillStyle = color;
+    roundedRect(ctx, x, cy - bh / 2, bw, bh, bh / 2);
     ctx.fill();
     if (showNumber) {
-      ctx.fillStyle = color;
-      ctx.font = `650 ${13.5 * scale}px system-ui, sans-serif`;
-      ctx.textAlign = "left";
-      ctx.fillText(`${safe}%`, x + 15 * scale, cy + .2 * scale);
+      ctx.fillStyle = color === "#ffffff" ? "#101412" : "#ffffff";
+      ctx.font = `760 ${9.8 * scale}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+      ctx.textAlign = "center";
+      ctx.fillText(String(safe), x + bw / 2, cy + .3 * scale);
+    } else {
+      ctx.fillStyle = color === "#ffffff" ? "#101412" : "#ffffff";
+      const fillW = Math.max(2 * scale, (bw - 5 * scale) * safe / 100);
+      roundedRect(ctx, x + 2.5 * scale, cy - bh / 2 + 2.5 * scale, fillW, bh - 5 * scale, 999);
+      ctx.fill();
     }
     ctx.restore();
     return;
   }
 
-  const bw = 32 * scale;
-  const bh = 16 * scale;
-  ctx.lineWidth = 1.45 * scale;
-  roundedRect(ctx, x, cy - bh / 2, bw, bh, 3.8 * scale);
-  ctx.stroke();
-  roundedRect(ctx, x + bw + 1.3 * scale, cy - 3.2 * scale, 2.2 * scale, 6.4 * scale, .8 * scale);
-  ctx.fill();
-
-  if (powerSave) {
-    drawBatteryLeaf(ctx, x + bw / 2, cy, scale, color);
-  } else if (style === "inside" && showNumber) {
-    ctx.fillStyle = color;
-    ctx.font = `700 ${10.5 * scale}px system-ui, sans-serif`;
-    ctx.textAlign = "center";
-    ctx.fillText(String(safe), x + bw / 2, cy + .4 * scale);
-  } else {
-    const fillW = Math.max(1.8 * scale, (bw - 4 * scale) * safe / 100);
-    ctx.fillStyle = chargeColor;
-    roundedRect(ctx, x + 2 * scale, cy - bh / 2 + 2 * scale, fillW, bh - 4 * scale, 2 * scale);
+  if (normalized === "motorola-vertical") {
+    const bw = 10 * scale;
+    const bh = 17 * scale;
+    ctx.lineWidth = 1.45 * scale;
+    roundedRect(ctx, x, cy - bh / 2, bw, bh, 1.8 * scale);
+    ctx.stroke();
+    roundedRect(ctx, x + 2.6 * scale, cy - bh / 2 - 2.5 * scale, 4.8 * scale, 2.2 * scale, .6 * scale);
     ctx.fill();
+    const fillH = Math.max(1.3 * scale, (bh - 3.6 * scale) * safe / 100);
+    ctx.fillStyle = chargeColor;
+    roundedRect(ctx, x + 1.8 * scale, cy + bh / 2 - 1.8 * scale - fillH, bw - 3.6 * scale, fillH, .65 * scale);
+    ctx.fill();
+    ctx.restore();
+    return;
   }
 
-  if ((style === "external" && showNumber) || (powerSave && showNumber)) {
-    ctx.fillStyle = color;
-    ctx.font = `650 ${13.5 * scale}px system-ui, sans-serif`;
-    ctx.textAlign = "left";
-    ctx.fillText(`${safe}%`, x + 39 * scale, cy + .3 * scale);
+  if (normalized === "huawei-number") {
+    const bw = 32 * scale;
+    const bh = 16 * scale;
+    ctx.lineWidth = 1.45 * scale;
+    roundedRect(ctx, x, cy - bh / 2, bw, bh, 3.5 * scale);
+    ctx.stroke();
+    roundedRect(ctx, x + bw + 1.25 * scale, cy - 3.1 * scale, 2.3 * scale, 6.2 * scale, .8 * scale);
+    ctx.fill();
+    if (showNumber) {
+      ctx.fillStyle = color;
+      ctx.font = `720 ${10.2 * scale}px system-ui, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.fillText(String(safe), x + bw / 2, cy + .3 * scale);
+    } else {
+      const fillW = Math.max(1.8 * scale, (bw - 4 * scale) * safe / 100);
+      ctx.fillStyle = chargeColor;
+      roundedRect(ctx, x + 2 * scale, cy - bh / 2 + 2 * scale, fillW, bh - 4 * scale, 2 * scale);
+      ctx.fill();
+    }
+    ctx.restore();
+    return;
+  }
+
+  if (normalized === "xiaomi-bar") {
+    const bw = 28 * scale;
+    const bh = 13 * scale;
+    ctx.lineWidth = 1.35 * scale;
+    roundedRect(ctx, x, cy - bh / 2, bw, bh, 2.2 * scale);
+    ctx.stroke();
+    roundedRect(ctx, x + bw + 1.1 * scale, cy - 2.7 * scale, 2 * scale, 5.4 * scale, .65 * scale);
+    ctx.fill();
+    const fillW = Math.max(1.5 * scale, (bw - 3.6 * scale) * safe / 100);
+    ctx.fillStyle = chargeColor;
+    roundedRect(ctx, x + 1.8 * scale, cy - bh / 2 + 1.8 * scale, fillW, bh - 3.6 * scale, 1.2 * scale);
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
+
+  if (normalized === "pixel-compact") {
+    const bw = 24 * scale;
+    const bh = 12 * scale;
+    ctx.lineWidth = 1.5 * scale;
+    roundedRect(ctx, x, cy - bh / 2, bw, bh, 2.7 * scale);
+    ctx.stroke();
+    roundedRect(ctx, x + bw + 1.05 * scale, cy - 2.5 * scale, 1.8 * scale, 5 * scale, .7 * scale);
+    ctx.fill();
+    const fillW = Math.max(1.6 * scale, (bw - 3.6 * scale) * safe / 100);
+    ctx.fillStyle = chargeColor;
+    roundedRect(ctx, x + 1.8 * scale, cy - bh / 2 + 1.8 * scale, fillW, bh - 3.6 * scale, 1.5 * scale);
+    ctx.fill();
   }
   ctx.restore();
 }
 
-function drawStandaloneBattery(ctx, x, cy, scale, value, color, style) {
-  const shellStyle = style === "percent" ? "solid" : style;
-  drawStatusBattery(ctx, x, cy, scale, value, color, false, shellStyle, false);
+function drawStandaloneBattery(ctx, x, cy, scale, value, color, style, showNumber) {
+  drawStatusBattery(ctx, x, cy, scale, value, color, showNumber, style);
 }
 
 function batteryShellWidth(style, scale) {
-  return batteryGraphicWidth(style === "percent" ? "solid" : style, false, scale, false);
+  return batteryGraphicWidth(style, scale);
 }
 
 function batteryPercentWidth(scale) {
@@ -802,7 +863,20 @@ function drawEraseStrokes(ctx, strokes, w, h, c) {
   ctx.restore();
 }
 
-function drawTop(ctx, img, w, h, c, customNoticeImages) {
+function drawDynamicIsland(ctx, w, th) {
+  const islandWidth = w * .286;
+  const islandHeight = Math.min(w * .084, th * .74);
+  const islandY = Math.max(w * .021, (th - islandHeight) / 2);
+  ctx.save();
+  ctx.fillStyle = "#000000";
+  ctx.shadowColor = "rgba(0,0,0,.22)";
+  ctx.shadowBlur = w * .004;
+  roundedRect(ctx, (w - islandWidth) / 2, islandY, islandWidth, islandHeight, islandHeight / 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawTop(ctx, img, w, h, c, customNoticeImages, phoneModel) {
   const th = h * c.topHeight / 100;
   const scale = Math.max(.62, w / 390);
   const iconScale = scale * Math.max(.6, Math.min(1.6, (c.iconScale || 100) / 100));
@@ -945,12 +1019,14 @@ function drawTop(ctx, img, w, h, c, customNoticeImages) {
   else items.push(...connectivityItems, ...wifiItems);
 
   const batteryItems = [];
-  if (c.showBatteryIcon !== false) batteryItems.push(makeAdjustedItem(
+  const resolvedBatteryStyle = normalizedBatteryStyle(c.batteryStyle);
+  const hasInsideBatteryNumber = batteryUsesInsideNumber(resolvedBatteryStyle);
+  if (c.showBatteryIcon !== false && resolvedBatteryStyle !== "percent") batteryItems.push(makeAdjustedItem(
     "batteryIcon",
-    (itemScale) => batteryShellWidth(c.batteryStyle, itemScale),
-    (x, itemCy, itemScale) => drawStandaloneBattery(ctx, x, itemCy, itemScale, c.battery, c.iconColor, c.batteryStyle),
+    (itemScale) => batteryShellWidth(resolvedBatteryStyle, itemScale),
+    (x, itemCy, itemScale) => drawStandaloneBattery(ctx, x, itemCy, itemScale, c.battery, c.iconColor, resolvedBatteryStyle, c.batteryNumber),
   ));
-  if (c.batteryNumber) batteryItems.push(makeAdjustedItem(
+  if (c.batteryNumber && (!hasInsideBatteryNumber || c.showBatteryIcon === false)) batteryItems.push(makeAdjustedItem(
     "batteryPercent",
     batteryPercentWidth,
     (x, itemCy, itemScale) => drawBatteryPercent(ctx, x, itemCy, itemScale, c.battery, c.iconColor),
@@ -973,6 +1049,7 @@ function drawTop(ctx, img, w, h, c, customNoticeImages) {
     item.draw(cursor);
     cursor += item.width + gap;
   }
+  if (phoneModel?.dynamicIsland) drawDynamicIsland(ctx, w, th);
 }
 
 function drawNavIcon(ctx, type, x, y, size, color) {
@@ -1105,19 +1182,27 @@ function drawBottom(ctx, img, w, h, c) {
   }
 }
 
-function renderCanvas(canvas, img, config, strokes = [], customNoticeImages = [], originalOnly = false) {
+function renderCanvas(canvas, img, config, strokes = [], customNoticeImages = [], originalOnly = false, phoneModel = null) {
   if (!canvas || !img) return;
   canvas.width = img.naturalWidth;
   canvas.height = img.naturalHeight;
-  const ctx = canvas.getContext("2d", { alpha: false });
+  const ctx = canvas.getContext("2d", { alpha: true });
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const cornerRadius = screenCornerRadius(phoneModel, canvas.width);
+  ctx.save();
+  if (cornerRadius > 0) {
+    roundedRect(ctx, 0, 0, canvas.width, canvas.height, cornerRadius);
+    ctx.clip();
+  }
   ctx.drawImage(img, 0, 0);
   if (!originalOnly) {
     drawEraseStrokes(ctx, strokes, canvas.width, canvas.height, config);
-    drawTop(ctx, img, canvas.width, canvas.height, config, customNoticeImages);
+    drawTop(ctx, img, canvas.width, canvas.height, config, customNoticeImages, phoneModel);
     drawBottom(ctx, img, canvas.width, canvas.height, config);
   }
+  ctx.restore();
 }
 
 function Range({ label, value, min, max, step = 1, suffix = "", onChange }) {
@@ -1146,6 +1231,69 @@ function Toggle({ label, checked, onChange }) {
       <span>{label}</span>
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
     </label>
+  );
+}
+
+function cloneEditorConfig(config) {
+  return JSON.parse(JSON.stringify(config));
+}
+
+function customIconThumbnail(item) {
+  const source = item?.image;
+  if (!source?.naturalWidth || !source?.naturalHeight) return source?.src || "";
+  const limit = 96;
+  const ratio = Math.min(limit / source.naturalWidth, limit / source.naturalHeight, 1);
+  const width = Math.max(1, Math.round(source.naturalWidth * ratio));
+  const height = Math.max(1, Math.round(source.naturalHeight * ratio));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d", { alpha: true });
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(source, 0, 0, width, height);
+  return canvas.toDataURL("image/png");
+}
+
+function restoreSchemeIcon(icon, id) {
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.onload = () => resolve({ id, image, name: icon.name, adjustment: { scale: 100, x: 0, y: 0, ...(icon.adjustment || {}) }, schemeActive: Boolean(icon.active) });
+    image.onerror = () => resolve(null);
+    image.src = icon.src;
+  });
+}
+
+function formatSchemeTime(value) {
+  if (!value) return "刚刚保存";
+  return new Date(value).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
+function BatteryStylePreview({ style }) {
+  const outsideNumber = ["xiaomi-bar", "pixel-compact", "motorola-vertical", "percent"].includes(style);
+  return (
+    <span className={`battery-style-preview ${style}`} aria-hidden="true">
+      {style !== "percent" && <span className="battery-mini-shell"><i /><b>{["samsung-pill", "huawei-number"].includes(style) ? "87" : ""}</b></span>}
+      {outsideNumber && <em>87%</em>}
+    </span>
+  );
+}
+
+function BatteryStylePicker({ value, onChange }) {
+  const selected = normalizedBatteryStyle(value);
+  return (
+    <div className="battery-picker-wrap">
+      <span className="battery-picker-label">电池类型与形状</span>
+      <div className="battery-style-grid">
+        {BATTERY_STYLE_OPTIONS.map((option) => (
+          <button key={option.id} type="button" className={selected === option.id ? "selected" : ""} aria-pressed={selected === option.id} onClick={() => onChange(option.id)}>
+            <BatteryStylePreview style={option.id} />
+            <span className="battery-style-copy"><strong>{option.brand}</strong><small>{option.detail}</small></span>
+          </button>
+        ))}
+      </div>
+      <p className="battery-picker-note">相同轮廓已合并；框内数字型不会重复显示外部百分比。</p>
+    </div>
   );
 }
 
@@ -1179,7 +1327,6 @@ export default function Home() {
   const modelRowRef = useRef(null);
   const uploadRowRef = useRef(null);
   const drawingRef = useRef(false);
-  const fitRevisionRef = useRef(0);
   const customIdRef = useRef(0);
   const [image, setImage] = useState(null);
   const [sourceImage, setSourceImage] = useState(null);
@@ -1192,7 +1339,19 @@ export default function Home() {
   const [dragging, setDragging] = useState(false);
   const [originalOnly, setOriginalOnly] = useState(false);
   const [selectedPhone, setSelectedPhone] = useState("");
-  const [activeSection, setActiveSection] = useState("model");
+  const [activeSection, setActiveSection] = useState("upload");
+  const [savedSchemes, setSavedSchemes] = useState([]);
+  const [schemeName, setSchemeName] = useState("");
+  const [schemeMessage, setSchemeMessage] = useState("");
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(SCHEME_STORAGE_KEY) || "[]");
+      if (Array.isArray(stored)) setSavedSchemes(stored.slice(0, MAX_SAVED_SCHEMES));
+    } catch {
+      setSavedSchemes([]);
+    }
+  }, []);
 
   const patch = useCallback((key, value) => setConfig((c) => ({ ...c, [key]: value })), []);
   const patchIconAdjustment = useCallback((key, property, value) => {
@@ -1220,36 +1379,28 @@ export default function Home() {
     }));
   }, []);
   const phoneModel = useMemo(() => PHONE_MODELS.find((model) => model.id === selectedPhone) || null, [selectedPhone]);
+  const screenShapeStyle = useMemo(() => {
+    if (!phoneModel) return undefined;
+    const radius = screenCornerRadius(phoneModel);
+    if (!radius) return { borderRadius: 0 };
+    return { borderRadius: `${radius / phoneModel.width * 100}% / ${radius / phoneModel.height * 100}%` };
+  }, [phoneModel]);
   const sizeText = useMemo(() => {
-    if (image && phoneModel) return `${phoneModel.name} · ${image.naturalWidth} × ${image.naturalHeight}px`;
-    if (phoneModel) return `${phoneModel.name} · ${phoneSpec(phoneModel)}`;
-    return "等待选择机型";
+    if (image && phoneModel) return `${phoneModel.name} 外形 · 原图 ${image.naturalWidth} × ${image.naturalHeight}px`;
+    if (image) return `原图自适应 · ${image.naturalWidth} × ${image.naturalHeight}px`;
+    if (phoneModel) return `${phoneModel.name} 外形 · 上传后保留原图尺寸`;
+    return "原图自适应 · 等待上传";
   }, [image, phoneModel]);
 
-  useEffect(() => renderCanvas(canvasRef.current, image, config, eraseStrokes, customNoticeImages, originalOnly), [image, config, eraseStrokes, customNoticeImages, originalOnly]);
-
-  const refitSource = useCallback((source, model) => {
-    const revision = ++fitRevisionRef.current;
-    const next = new Image();
-    next.onload = () => {
-      if (revision !== fitRevisionRef.current) return;
-      setImage(next);
-      setEraseStrokes([]);
-      setEraseMode("off");
-    };
-    next.src = fitImageToPhone(source, model);
-  }, []);
-
-  useEffect(() => {
-    if (sourceImage && phoneModel) refitSource(sourceImage, phoneModel);
-  }, [phoneModel, refitSource, sourceImage]);
+  useEffect(() => renderCanvas(canvasRef.current, image, config, eraseStrokes, customNoticeImages, originalOnly, phoneModel), [image, config, eraseStrokes, customNoticeImages, originalOnly, phoneModel]);
 
   const openFile = useCallback((file) => {
-    if (!phoneModel || !file || !file.type.startsWith("image/")) return;
+    if (!file || !file.type.startsWith("image/")) return;
     const reader = new FileReader();
     const source = new Image();
     source.onload = () => {
       setSourceImage(source);
+      setImage(source);
       setFileName(file.name.replace(/\.[^.]+$/, ""));
       setTab("erase");
       setEraseStrokes([]);
@@ -1257,24 +1408,21 @@ export default function Home() {
     };
     reader.onload = () => { source.src = reader.result; };
     reader.readAsDataURL(file);
-  }, [phoneModel]);
+  }, []);
 
   const changePhone = (value) => {
     setSelectedPhone(value);
-    setEraseStrokes([]);
-    setEraseMode("off");
-    if (!value) setImage(null);
   };
 
   const download = useCallback((type = "png") => {
     if (!canvasRef.current || !image) return;
-    renderCanvas(canvasRef.current, image, config, eraseStrokes, customNoticeImages, false);
+    renderCanvas(canvasRef.current, image, config, eraseStrokes, customNoticeImages, false, phoneModel);
     const mime = type === "jpg" ? "image/jpeg" : "image/png";
     const link = document.createElement("a");
     link.download = `${fileName || "screenshot"}-edited.${type}`;
     link.href = canvasRef.current.toDataURL(mime, type === "jpg" ? 0.95 : undefined);
     link.click();
-  }, [config, customNoticeImages, eraseStrokes, fileName, image]);
+  }, [config, customNoticeImages, eraseStrokes, fileName, image, phoneModel]);
 
   const setBottomPreset = (value) => {
     const heights = { gesture: 6.2, "gesture-thin": 4.2, android: 6.5, "android-reverse": 6.5, samsung: 6.5, vivo: 6.8, xiaomi: 6.8, huawei: 6.8, dock: 12.5, minimal: 8 };
@@ -1335,6 +1483,81 @@ export default function Home() {
       : item));
   };
 
+  const persistSchemes = (schemes) => {
+    try {
+      localStorage.setItem(SCHEME_STORAGE_KEY, JSON.stringify(schemes));
+      setSavedSchemes(schemes);
+      return true;
+    } catch {
+      setSchemeMessage("浏览器保存空间不足，请删除旧方案后再试");
+      return false;
+    }
+  };
+
+  const saveCurrentScheme = () => {
+    const name = schemeName.trim() || `方案 ${savedSchemes.length + 1}`;
+    const savedIcons = customNoticeImages.slice(0, 5).map((item) => ({
+      name: item.name,
+      src: customIconThumbnail(item),
+      adjustment: { scale: 100, x: 0, y: 0, ...(item.adjustment || {}) },
+      active: (config.notificationIcons || []).includes(item.id),
+    }));
+    const savedConfig = cloneEditorConfig(config);
+    savedConfig.notificationIcons = [];
+    const scheme = {
+      id: `scheme-${Date.now()}`,
+      name,
+      savedAt: Date.now(),
+      selectedPhone,
+      config: savedConfig,
+      customIcons: savedIcons,
+    };
+    const next = [scheme, ...savedSchemes].slice(0, MAX_SAVED_SCHEMES);
+    if (persistSchemes(next)) {
+      setSchemeName("");
+      setSchemeMessage(`“${name}”已保存`);
+    }
+  };
+
+  const applyScheme = async (scheme) => {
+    const storedIcons = (scheme.customIcons || []).slice(0, 5);
+    const restoredIcons = (await Promise.all(storedIcons.map((icon, index) => {
+      customIdRef.current += 1;
+      return restoreSchemeIcon(icon, `scheme-icon-${Date.now()}-${customIdRef.current}-${index}`);
+    }))).filter(Boolean);
+    const activeIconIds = restoredIcons.filter((item) => item.schemeActive).map((item) => item.id);
+    const savedConfig = cloneEditorConfig(scheme.config || {});
+    setConfig({
+      ...DEFAULT_CONFIG,
+      ...savedConfig,
+      iconAdjustments: {
+        ...DEFAULT_ICON_ADJUSTMENTS,
+        ...(savedConfig.iconAdjustments || {}),
+      },
+      notificationIcons: activeIconIds,
+    });
+    setCustomNoticeImages(restoredIcons);
+    setSelectedPhone(scheme.selectedPhone || "");
+    setSchemeMessage(`已应用“${scheme.name}”`);
+  };
+
+  const renameScheme = (id, name) => {
+    const next = savedSchemes.map((scheme) => scheme.id === id ? { ...scheme, name } : scheme);
+    persistSchemes(next);
+  };
+
+  const finishRenameScheme = (id, name) => {
+    const cleanName = name.trim() || "未命名方案";
+    renameScheme(id, cleanName);
+  };
+
+  const deleteScheme = (id) => {
+    const target = savedSchemes.find((scheme) => scheme.id === id);
+    if (persistSchemes(savedSchemes.filter((scheme) => scheme.id !== id))) {
+      setSchemeMessage(target ? `已删除“${target.name}”` : "方案已删除");
+    }
+  };
+
   const canvasPoint = (event) => {
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
@@ -1389,6 +1612,8 @@ export default function Home() {
 
   const openPanelSection = (item) => {
     setActiveSection(item.id);
+    if (item.tab) setTab(item.tab);
+    requestAnimationFrame(() => controlsScrollRef.current?.scrollTo({ top: 0 }));
     if (item.id === "model") {
       modelRowRef.current?.querySelector("select")?.focus();
       return;
@@ -1397,32 +1622,6 @@ export default function Home() {
       uploadRowRef.current?.querySelector("button")?.focus();
       return;
     }
-    setTab(item.tab);
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      const scroller = controlsScrollRef.current;
-      const target = scroller?.querySelector(`[data-section="${item.id}"]`);
-      if (!scroller || !target) return;
-      const top = target.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - 8;
-      scroller.scrollTo({ top, behavior: "smooth" });
-    }));
-  };
-
-  const selectTab = (nextTab) => {
-    const sectionId = nextTab === "erase" ? "erase-tool" : nextTab === "top" ? "top-area" : "bottom-style";
-    openPanelSection(PANEL_NAV_ITEMS.find((item) => item.id === sectionId));
-  };
-
-  const syncActiveSection = () => {
-    const scroller = controlsScrollRef.current;
-    if (!scroller) return;
-    const sections = [...scroller.querySelectorAll("[data-section]")];
-    if (!sections.length) return;
-    const scrollerTop = scroller.getBoundingClientRect().top;
-    let current = sections[0];
-    sections.forEach((section) => {
-      if (section.getBoundingClientRect().top <= scrollerTop + 72) current = section;
-    });
-    setActiveSection(current.dataset.section);
   };
 
   return (
@@ -1453,12 +1652,20 @@ export default function Home() {
           </nav>
 
           <div className="control-main">
-          <div ref={modelRowRef} className="model-row" onFocus={() => setActiveSection("model")}>
-            <span className="step-badge">01</span>
+          <div ref={uploadRowRef} className="upload-row" onFocus={() => setActiveSection("upload")}>
+            <div><span className="eyebrow">01 · 上传截图</span><strong>{fileName || "尚未选择图片"}</strong><small>{sizeText}</small></div>
+            <div className="upload-actions">
+              <button className="secondary" onClick={() => fileRef.current?.click()}>{sourceImage ? "更换" : "上传"}</button>
+            </div>
+            <input ref={fileRef} hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => { openFile(e.target.files?.[0]); e.target.value = ""; }} />
+          </div>
+
+          <div ref={modelRowRef} className="model-row optional-model-row" onFocus={() => setActiveSection("model")}>
+            <span className="step-badge">02</span>
             <label>
-              <span>选择手机型号</span>
+              <span>输出外形（可选）</span>
               <select value={selectedPhone} onChange={(e) => changePhone(e.target.value)}>
-                <option value="">请先选择手机型号</option>
+                <option value="">原图自适应（推荐）</option>
                 {PHONE_MODEL_GROUPS.map((group) => (
                   <optgroup key={group.brand} label={group.brand}>
                     {group.models.map((model) => (
@@ -1468,25 +1675,29 @@ export default function Home() {
                 ))}
               </select>
             </label>
-            {phoneModel && <small>{phoneSpec(phoneModel)}</small>}
+            <small>{phoneModel ? `${phoneSpec(phoneModel)} · 不改变原图尺寸` : "保留原图尺寸、比例和全部画面"}</small>
           </div>
 
-          <div ref={uploadRowRef} className="upload-row" onFocus={() => setActiveSection("upload")}>
-            <div><span className="eyebrow">02 · 上传截图</span><strong>{fileName || (phoneModel ? "尚未选择图片" : "请先完成机型选择")}</strong><small>{sizeText}</small></div>
-            <div className="upload-actions">
-              <button className="secondary" disabled={!phoneModel} onClick={() => fileRef.current?.click()}>{sourceImage ? "更换" : "上传"}</button>
-            </div>
-            <input ref={fileRef} hidden disabled={!phoneModel} type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => { openFile(e.target.files?.[0]); e.target.value = ""; }} />
-          </div>
+          <div ref={controlsScrollRef} className="controls-scroll">
+            {activeSection === "model" && <>
+              <div className="section-title"><span>屏幕适配</span><em>DEVICE</em></div>
+              <div className="device-card">
+                <strong>{phoneModel ? phoneModel.name : "原图自适应（推荐）"}</strong>
+                <p>{phoneModel ? `${phoneSpec(phoneModel)}。仅应用屏幕外形，图片仍使用上传时的原始尺寸和比例。` : "无需选择手机型号。图片不会被放大、裁切或拉伸，导出尺寸与上传原图完全一致。"}</p>
+                {phoneModel?.dynamicIsland && <span>已启用 iPhone 圆角屏幕与自动灵动岛</span>}
+              </div>
+            </>}
 
-          <div className="tabs">
-            <button className={tab === "erase" ? "active" : ""} onClick={() => selectTab("erase")}><i>03</i>消除原图</button>
-            <button className={tab === "top" ? "active" : ""} onClick={() => selectTab("top")}><i>04</i>顶部状态栏</button>
-            <button className={tab === "bottom" ? "active" : ""} onClick={() => selectTab("bottom")}><i>05</i>底部导航栏</button>
-          </div>
+            {activeSection === "upload" && <>
+              <div className="section-title"><span>上传原图</span><em>IMAGE</em></div>
+              <button className="upload-panel-card" onClick={() => fileRef.current?.click()}>
+                <i>↥</i>
+                <strong>{sourceImage ? "更换当前截图" : "选择截图文件"}</strong>
+                <small>保留原始像素尺寸与完整画面，仅在预览区等比例缩小显示</small>
+              </button>
+            </>}
 
-          <div ref={controlsScrollRef} className="controls-scroll" onScroll={syncActiveSection}>
-            {tab === "erase" ? <>
+            {activeSection === "erase-tool" && <>
               <div className="section-title" data-section="erase-tool"><span>原图消除工具</span><em>ERASER</em></div>
               <div className="erase-card standalone">
                 <div className="tool-buttons">
@@ -1503,13 +1714,18 @@ export default function Home() {
                 </div>
                 <p>{eraseMode === "picker" ? "点击截图顶部吸取原图颜色，随后会自动切换为消除笔。" : eraseMode === "brush" ? "在原图顶部按住并拖动。消除内容会绘制在新状态栏的下层。" : "消除笔只处理原始截图，不会擦除后来添加的状态栏图标。"}</p>
               </div>
-            </> : tab === "top" ? <>
+            </>}
+
+            {activeSection === "top-area" && <>
               <div className="section-title" data-section="top-area"><span>区域与背景</span><em>TOP</em></div>
               <Range label="覆盖高度" value={config.topHeight} min={3.5} max={12} step={0.1} suffix="%" onChange={(v) => patch("topHeight", v)} />
               <SelectField label="背景处理" value={config.topStyle} options={[["dark","深色遮盖"],["light","浅色遮盖"],["blur","原图模糊"],["custom","自定义颜色"],["manual","保留原图，手动消除"]]} onChange={(v) => patch("topStyle", v)} />
               {config.topStyle === "custom" && <label className="color-field"><span>背景颜色</span><input type="color" value={config.topColor} onChange={(e) => patch("topColor", e.target.value)} /></label>}
               {config.topStyle !== "manual" && <Range label="背景强度" value={config.topOpacity} min={20} max={100} suffix="%" onChange={(v) => patch("topOpacity", v)} />}
 
+            </>}
+
+            {activeSection === "top-time" && <>
               <div className="section-title" data-section="top-time"><span>时间</span><em>TIME</em></div>
               <div className="field-pair">
                 <label className="field"><span>显示时间</span><input value={config.time} maxLength={8} onChange={(e) => patch("time", e.target.value)} /></label>
@@ -1517,6 +1733,9 @@ export default function Home() {
               </div>
               {config.timePosition !== "center" && <Range label="边缘距离" value={config.timeX} min={2} max={25} suffix="%" onChange={(v) => patch("timeX", v)} />}
 
+            </>}
+
+            {activeSection === "top-status" && <>
               <div className="section-title" data-section="top-status"><span>状态图标</span><em>STATUS</em></div>
               <div className="field-pair">
                 <SelectField label="系统图标区域" value={config.iconPosition} options={[["right","右侧"],["left","左侧"]]} onChange={(v) => patch("iconPosition", v)} />
@@ -1546,20 +1765,24 @@ export default function Home() {
                 <Toggle label="SIM 1 / 2 编号" checked={config.showSimNumbers} onChange={(v) => patch("showSimNumbers", v)} />
               </div>
 
+            </>}
+
+            {activeSection === "top-system" && <>
               <div className="section-title" data-section="top-system"><span>Wi-Fi 与电池</span><em>SYSTEM</em></div>
-              <div className="field-pair">
-                <SelectField label="Wi-Fi 样式" value={config.wifiStyle} options={[["android","安卓标准＋箭头"],["wifi6","Wi-Fi 6"],["wifi-plus","Wi-Fi+"],["iphone","简洁无箭头"],["pixel","Pixel 粗线"],["compact","紧凑型"]]} onChange={(v) => patch("wifiStyle", v)} />
-                <SelectField label="电池样式" value={config.batteryStyle} options={[["inside","横向数字电池"],["solid","横向实心电池"],["external","横向＋外部百分比"],["vertical","竖向＋外部百分比"],["percent","仅显示百分比"]]} onChange={(v) => patch("batteryStyle", v)} />
-              </div>
+              <SelectField label="Wi-Fi 样式" value={config.wifiStyle} options={[["android","安卓标准＋箭头"],["wifi6","Wi-Fi 6"],["wifi-plus","Wi-Fi+"],["iphone","简洁无箭头"],["pixel","Pixel 粗线"],["compact","紧凑型"]]} onChange={(v) => patch("wifiStyle", v)} />
+              <BatteryStylePicker value={config.batteryStyle} onChange={(v) => patch("batteryStyle", v)} />
               {config.wifi && <Range label="Wi-Fi 强度" value={config.wifiStrength} min={0} max={3} onChange={(v) => patch("wifiStrength", v)} />}
               <Range label="剩余电量" value={config.battery} min={1} max={100} suffix="%" onChange={(v) => patch("battery", v)} />
               <SelectField label="系统图标颜色" value={config.iconColor} options={[["#ffffff","白色"],["#000000","黑色"]]} onChange={(v) => patch("iconColor", v)} />
 
+            </>}
+
+            {activeSection === "top-components" && <>
               <div className="section-title icon-adjust-title" data-section="top-components">
                 <span>单个系统图标</span>
                 <button onClick={() => patch("iconAdjustments", Object.fromEntries(Object.entries(DEFAULT_ICON_ADJUSTMENTS).map(([key, value]) => [key, { ...value }])))}>全部重置</button>
               </div>
-              <p className="icon-adjust-help">网络制式、信号、上下行箭头、Wi-Fi、电池和电量数字均已拆开，可以分别开关、缩放和移动。</p>
+              <p className="icon-adjust-help">已打开的图标会自动排列在最上方；所有图标仍可分别开关、缩放和移动。</p>
               <div className="icon-adjust-list">
                 {[
                   { key: "headphones", label: "耳机", symbol: "◉", active: config.headphones, toggle: (value) => patch("headphones", value) },
@@ -1581,7 +1804,7 @@ export default function Home() {
                   { key: "batteryIcon", label: "电池图形", symbol: "▰", active: config.showBatteryIcon !== false, toggle: (value) => patch("showBatteryIcon", value) },
                   { key: "batteryPercent", label: "电量数字", symbol: "%", active: config.batteryNumber, toggle: (value) => patch("batteryNumber", value) },
                   { key: "powerSave", label: "省电叶片", symbol: "◇", active: config.powerSave, toggle: (value) => patch("powerSave", value) },
-                ].map(({ key, label, symbol, active, toggle }) => (
+                ].sort((first, second) => Number(second.active) - Number(first.active)).map(({ key, label, symbol, active, toggle }) => (
                   <IconAdjustCard
                     key={key}
                     label={label}
@@ -1595,6 +1818,9 @@ export default function Home() {
                 ))}
               </div>
 
+            </>}
+
+            {activeSection === "top-custom" && <>
               <div className="section-title" data-section="top-custom"><span>自定义通知图标</span><em>最多 5 个</em></div>
               <button className="upload-custom custom-only" disabled={customNoticeImages.length >= 5} onClick={() => customIconRef.current?.click()}>＋ 添加自定义图标</button>
               {customNoticeImages.length > 0 && <div className="icon-adjust-list custom-notice-adjust-list">
@@ -1614,7 +1840,9 @@ export default function Home() {
               </div>}
               <p className="custom-icon-help">支持一次选择多张图片。每个自定义图标都可以单独开关、调整大小和位置。</p>
               <input ref={customIconRef} hidden multiple type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => loadCustomNotices(e.target.files)} />
-            </> : <>
+            </>}
+
+            {activeSection === "bottom-style" && <>
               <div className="section-title" data-section="bottom-style"><span>导航栏样式</span><em>BOTTOM</em></div>
               <div className="style-grid">
                 {[["gesture","手势短条"],["gesture-thin","手势细线"],["android","三键 · 返回左"],["android-reverse","三键 · 返回右"],["samsung","Samsung 三键"],["vivo","vivo OriginOS"],["xiaomi","小米 HyperOS"],["huawei","华为 HarmonyOS"],["dock","图标 Dock"],["minimal","简洁图标"]].map(([v,l]) => <button key={v} className={config.bottomStyle === v ? "selected" : ""} onClick={() => setBottomPreset(v)}><span className={`style-preview ${v}`} />{l}</button>)}
@@ -1634,12 +1862,46 @@ export default function Home() {
                 </div>
               </>}
             </>}
+
+            {activeSection === "saved-schemes" && <>
+              <div className="section-title" data-section="saved-schemes"><span>保存与应用方案</span><em>最多 {MAX_SAVED_SCHEMES} 个</em></div>
+              <div className="scheme-save-card">
+                <label className="field">
+                  <span>方案名称</span>
+                  <input value={schemeName} maxLength={30} placeholder={`例如：双卡白色状态栏`} onChange={(event) => setSchemeName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") saveCurrentScheme(); }} />
+                </label>
+                <button className="save-scheme-button" type="button" onClick={saveCurrentScheme}>保存当前方案</button>
+                <p>保存屏幕外形、状态栏、系统图标、自定义图标和底部导航。图片与消除笔痕迹不会写入方案。</p>
+              </div>
+              {schemeMessage && <div className="scheme-message" role="status">{schemeMessage}</div>}
+              {savedSchemes.length > 0 ? <div className="saved-scheme-list">
+                {savedSchemes.map((scheme) => (
+                  <article className="saved-scheme-card" key={scheme.id}>
+                    <div className="saved-scheme-copy">
+                      <input
+                        aria-label="方案名称"
+                        value={scheme.name}
+                        maxLength={30}
+                        onChange={(event) => renameScheme(scheme.id, event.target.value)}
+                        onBlur={(event) => finishRenameScheme(scheme.id, event.target.value)}
+                        onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
+                      />
+                      <small>{formatSchemeTime(scheme.savedAt)} · {scheme.selectedPhone ? "机型外形" : "原图外形"}</small>
+                    </div>
+                    <div className="saved-scheme-actions">
+                      <button type="button" className="apply" onClick={() => applyScheme(scheme)}>应用方案</button>
+                      <button type="button" className="delete" onClick={() => deleteScheme(scheme.id)}>删除</button>
+                    </div>
+                  </article>
+                ))}
+              </div> : <div className="scheme-empty"><strong>还没有保存方案</strong><span>调整好一张图片后，输入名称并保存；下次更换图片即可一键应用。</span></div>}
+            </>}
           </div>
 
           <div className="panel-actions">
             <button className="ghost" onClick={resetAll}>恢复默认</button>
             <button className="primary" disabled={!image} onClick={() => download("png")}>导出 PNG</button>
-            <button className="more" disabled={!image} title="导出 JPG" onClick={() => download("jpg")}>JPG</button>
+            <button className="more" disabled={!image || Boolean(phoneModel && screenCornerRadius(phoneModel) > 0)} title={phoneModel && screenCornerRadius(phoneModel) > 0 ? "圆角透明图片请使用 PNG" : "导出 JPG"} onClick={() => download("jpg")}>JPG</button>
           </div>
           </div>
         </aside>
@@ -1649,14 +1911,14 @@ export default function Home() {
             <div><span className="status-dot" />实时预览 <small>{sizeText}</small></div>
             <button disabled={!image} onPointerDown={() => setOriginalOnly(true)} onPointerUp={() => setOriginalOnly(false)} onPointerLeave={() => setOriginalOnly(false)}>按住查看原图</button>
           </div>
-          <div className={`canvas-stage ${dragging ? "dragging" : ""}`} onDragOver={(e) => {e.preventDefault(); if (phoneModel) setDragging(true)}} onDragLeave={() => setDragging(false)} onDrop={(e) => {e.preventDefault(); setDragging(false); if (phoneModel) openFile(e.dataTransfer.files?.[0])}}>
-            {!image && <button className="drop-zone" disabled={!phoneModel} onClick={() => phoneModel && fileRef.current?.click()}>
+          <div className={`canvas-stage ${dragging ? "dragging" : ""}`} onDragOver={(e) => {e.preventDefault(); setDragging(true)}} onDragLeave={() => setDragging(false)} onDrop={(e) => {e.preventDefault(); setDragging(false); openFile(e.dataTransfer.files?.[0])}}>
+            {!image && <button className="drop-zone" onClick={() => fileRef.current?.click()}>
               <span className="upload-icon">↥</span>
-              <strong>{phoneModel ? `上传 ${phoneModel.name} 截图` : "请先选择手机型号"}</strong>
-              <small>{phoneModel ? "点击选择，或将 PNG / JPG 拖到这里" : "选择后将自动固定对应的屏幕比例"}</small>
-              <em>{phoneModel ? `${phoneSpec(phoneModel)} · 图片不会上传到服务器` : "步骤 01"}</em>
+              <strong>上传手机截图</strong>
+              <small>点击选择，或将 PNG / JPG 拖到这里</small>
+              <em>保持原图尺寸与完整内容 · 图片不会上传到服务器</em>
             </button>}
-            <div className={`canvas-wrap ${image ? "visible" : ""}`}>
+            <div className={`canvas-wrap ${image ? "visible" : ""}`} style={screenShapeStyle}>
               <canvas ref={canvasRef} className={eraseMode !== "off" && tab === "erase" ? "editing" : ""} onPointerDown={handleCanvasDown} onPointerMove={handleCanvasMove} onPointerUp={handleCanvasUp} onPointerCancel={handleCanvasUp} />
               {image && !originalOnly && <>
                 <div className={`guide top ${tab === "top" || tab === "erase" ? "active" : ""}`} style={{height: `${config.topHeight}%`}} />
@@ -1664,7 +1926,7 @@ export default function Home() {
               </>}
             </div>
           </div>
-          <div className="preview-foot"><span>导出时不会包含虚线编辑框</span><span>{phoneModel ? `${phoneModel.name} · ${phoneModel.width}×${phoneModel.height}` : "请先选择手机型号"}</span></div>
+          <div className="preview-foot"><span>{phoneModel && screenCornerRadius(phoneModel) > 0 ? "圆角 PNG 会保留透明四角" : "导出时不会包含虚线编辑框"}</span><span>{image ? `导出 ${image.naturalWidth}×${image.naturalHeight}px` : "等待上传原图"}</span></div>
         </section>
       </section>
     </main>
