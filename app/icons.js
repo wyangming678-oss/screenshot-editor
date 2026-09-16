@@ -181,6 +181,28 @@ export function NavPreview({ variant }) {
     <svg className="style-preview" viewBox="0 0 42 25" aria-hidden="true">
       <rect width="42" height="25" rx="6" fill="#1d2624" />
       {variant === "gesture" && <rect x="13" y="19" width="16" height="2.6" rx="1.3" fill="#fff" />}
+      {variant === "gestureThin" && <rect x="13" y="19.6" width="16" height="1.2" rx="0.6" fill="#fff" />}
+      {variant === "threeLeft" && (
+        <>
+          <path d="M12.5 8.8 7.8 12.5l4.7 3.7" {...stroke} />
+          <circle cx="21" cy="12.5" r="3.8" {...stroke} />
+          <rect x="30.2" y="8.7" width="7.6" height="7.6" rx="1" {...stroke} />
+        </>
+      )}
+      {variant === "threeRight" && (
+        <>
+          <rect x="4.2" y="8.7" width="7.6" height="7.6" rx="1" {...stroke} />
+          <circle cx="21" cy="12.5" r="3.8" {...stroke} />
+          <path d="M29.8 8.8 34.5 12.5l-4.7 3.7" {...stroke} />
+        </>
+      )}
+      {variant === "samsung" && (
+        <>
+          <path d="M12.5 8.8 7.8 12.5l4.7 3.7" {...stroke} />
+          <circle cx="21" cy="12.5" r="3.8" {...stroke} />
+          <path d="M34 8.7v7.6" {...stroke} />
+        </>
+      )}
       {variant === "android" && (
         <>
           <path d="M12.5 8.8 7.8 12.5l4.7 3.7" {...stroke} />
@@ -218,6 +240,40 @@ export function NavPreview({ variant }) {
           <circle cx="31.5" cy="12.5" r="1.7" fill="#fff" />
         </>
       )}
+    </svg>
+  );
+}
+
+export function BatteryPreview({ type }) {
+  const o = { stroke: "#fff", strokeWidth: 1.1, fill: "none" };
+  const num = (x, y, size = 5.4, anchor = "middle") => (
+    <text x={x} y={y} fill="#fff" fontSize={size} fontWeight="700" textAnchor={anchor} fontFamily="system-ui, sans-serif">87</text>
+  );
+  const hBody = (extra) => (
+    <>
+      <rect x="4" y="8" width="22" height="10" rx="3" {...o} {...extra} />
+      <rect x="27" y="11" width="1.8" height="4" rx="0.9" fill="#fff" />
+    </>
+  );
+  const vBody = (
+    <>
+      <rect x="11" y="4" width="10" height="20" rx="3" {...o} />
+      <rect x="14" y="2" width="4" height="1.6" rx="0.8" fill="#fff" />
+    </>
+  );
+  return (
+    <svg className="battery-preview" viewBox="0 0 46 28" aria-hidden="true">
+      <rect width="46" height="28" rx="6" fill="#1d2624" />
+      {type === 1 && (<>{hBody()}<circle cx="15" cy="13" r="4.4" fill="#fff" /><text x="15" y="15" fill="#1d2624" fontSize="5.4" fontWeight="700" textAnchor="middle" fontFamily="system-ui, sans-serif">87</text></>)}
+      {type === 2 && (<>{hBody()}<rect x="5.6" y="9.6" width="15" height="6.8" rx="1.6" fill="#fff" /></>)}
+      {type === 3 && (<>{hBody()}<rect x="5.6" y="9.6" width="12" height="6.8" rx="1.6" fill="#fff" />{num(36, 15.4, 6, "start")}</>)}
+      {type === 4 && (<>{hBody()}<rect x="5.6" y="9.6" width="17" height="6.8" rx="1.6" fill="#fff" />{num(14.5, 15.2, 4.6)}</>)}
+      {type === 5 && (<><rect x="4" y="8" width="22" height="10" rx="3" fill="#fff" /><rect x="27" y="11" width="1.8" height="4" rx="0.9" fill="#fff" />{num(36, 15.4, 6, "start")}</>)}
+      {type === 6 && (<>{hBody({ strokeWidth: 0.8 })}<rect x="5.6" y="9.6" width="14" height="6.8" rx="3" fill="#fff" /></>)}
+      {type === 7 && (<><rect x="7" y="9" width="18" height="8.4" rx="2.4" {...o} /><rect x="25.8" y="11.4" width="1.6" height="3.6" rx="0.8" fill="#fff" />{num(16, 15.2, 4.8)}</>)}
+      {type === 8 && (<>{vBody}<rect x="12.6" y="12" width="6.8" height="10.4" rx="1.6" fill="#fff" />{num(30, 16, 6, "start")}</>)}
+      {type === 9 && (<><rect x="13" y="4" width="6.4" height="20" rx="3" {...o} /><rect x="14.8" y="2" width="2.8" height="1.6" rx="0.8" fill="#fff" /><rect x="14.2" y="13" width="4" height="9.4" rx="1.6" fill="#fff" />{num(28, 16, 6, "start")}</>)}
+      {type === 10 && (<>{hBody()}<rect x="7" y="9.4" width="12" height="7.2" rx="2" fill="#fff" /><text x="13" y="14.9" fill="#1d2624" fontSize="4.8" fontWeight="700" textAnchor="middle" fontFamily="system-ui, sans-serif">87</text></>)}
     </svg>
   );
 }

@@ -1,33 +1,84 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { IconCustomAdd, IconLogo, IconUpload, NOTICE_ICONS, NAV_ICONS, NavPreview } from "./icons.js";
+import { IconLogo, IconUpload, NOTICE_ICONS, NAV_ICONS, NavPreview, BatteryPreview } from "./icons.js";
+
+const SECTIONS = [
+  ["upload", "上传截图"], ["device", "设备样式"], ["erase", "消除笔"], ["topbg", "状态栏背景"],
+  ["time", "时间"], ["signal", "信号"], ["wifi", "WiFi"], ["battery", "电池"],
+  ["other", "其他系统图标"], ["custom", "自定义图标"], ["bottom", "底部导航"], ["presets", "保存方案"],
+];
+
+const OFF_ITEM = { on: false, side: "right", size: 100, dx: 0, dy: 0 };
+
+const DEFAULT_ITEMS = {
+  notices: { on: true, side: "left", size: 100, dx: 0, dy: 0 },
+  sim1Question: { ...OFF_ITEM }, sim1Bars: { on: true, side: "right", size: 100, dx: 0, dy: 0 },
+  sim1Arrow: { ...OFF_ITEM }, sim1Type: { on: true, side: "right", size: 100, dx: 0, dy: 0 },
+  sim2Question: { ...OFF_ITEM }, sim2Bars: { ...OFF_ITEM }, sim2Arrow: { ...OFF_ITEM }, sim2Type: { ...OFF_ITEM },
+  speed1: { ...OFF_ITEM, side: "right" }, speed2: { ...OFF_ITEM },
+  mark1: { ...OFF_ITEM }, mark2: { ...OFF_ITEM }, mark3: { ...OFF_ITEM }, mark4: { ...OFF_ITEM },
+  signal6: { ...OFF_ITEM }, signal7: { ...OFF_ITEM }, signal8: { ...OFF_ITEM },
+  wifiArrow1: { on: true, side: "right", size: 100, dx: 0, dy: 0 },
+  wifi: { on: true, side: "right", size: 100, dx: 0, dy: 0 },
+  powersave: { ...OFF_ITEM }, batt11: { ...OFF_ITEM }, batt12: { ...OFF_ITEM },
+  chargeMark1: { ...OFF_ITEM }, batt13: { ...OFF_ITEM }, batt14: { ...OFF_ITEM },
+  batt15: { ...OFF_ITEM }, batt16: { ...OFF_ITEM },
+  battery: { on: true, side: "right", size: 100, dx: 0, dy: 0 },
+  headphone1: { on: true, side: "right", size: 100, dx: 0, dy: 0 },
+  vibrate1: { ...OFF_ITEM }, nfc1: { ...OFF_ITEM }, eyecare1: { ...OFF_ITEM },
+  alarm1: { ...OFF_ITEM }, bluetooth1: { ...OFF_ITEM },
+};
 
 const DEFAULT_CONFIG = {
+  deviceType: "original",
   topHeight: 5.2,
   topStyle: "dark",
   topColor: "#0b0d12",
   topOpacity: 72,
   iconColor: "#ffffff",
   iconScale: 100,
+  iconSide: "right",
   time: "16:01",
   timePosition: "left",
   timeX: 7,
-  network: "5G",
-  signalBars: 4,
-  signalSide: "right",
-  wifi: true,
-  wifiStrength: 3,
+  timeWeight: 650,
+  timeSize: 100,
+  timeOffsetY: 0,
+  timeGap: 2,
+  timeSuffix: "",
+  showSuffix: false,
+  carrier: "",
+  showCarrier: false,
+  simCount: 1,
+  signalShape: 1,
+  wifiSimOrder: "wifiFirst",
+  signalBarGap: 3.2,
+  signalLineGap: 1.6,
+  signalLineWidth: 3.4,
+  signalCap: "round",
+  sim1Network: "5G",
+  sim1Bars: 4,
+  sim2Network: "4G",
+  sim2Bars: 3,
+  showSimNumber: false,
+  callMark: "none",
+  speed1Text: "",
+  speed2Line1: "4.81",
+  speed2Line2: "KB/s",
   wifiStyle: 1,
-  wifiSide: "right",
+  wifiStrength: 3,
+  wifiGap: 3.2,
+  batteryType: 2,
   battery: 87,
-  batteryNumber: false,
-  batteryStyle: 1,
-  batterySide: "right",
+  batteryGap: 3.2,
+  batteryNumber: true,
   batteryCharging: false,
-  batteryFill: "auto",
-  noticeSide: "left",
+  batteryNumberLayout: "right",
+  batteryInnerColor: "auto",
+  otherGap: 3.2,
   notificationIcons: ["plane"],
+  noticeSide: "left",
   eraseColor: "#111317",
   eraseSize: 24,
   bottomHeight: 6.2,
@@ -36,9 +87,55 @@ const DEFAULT_CONFIG = {
   bottomColor: "#101319",
   bottomOpacity: 64,
   bottomIconColor: "#ffffff",
+  navIconScale: 100,
   navCount: 4,
   navIcons: ["home", "search", "plus", "user", "chat"],
+  items: JSON.parse(JSON.stringify(DEFAULT_ITEMS)),
 };
+
+const DEVICE_PRESETS = [
+  ["original", "原图模式（推荐）", "不改动任何参数，仅保留原图尺寸与画面"],
+  ["ios", "Apple iOS", "细信号柱 + 弧线 WiFi + 圆角框电池 + 手势横条"],
+  ["harmony", "华为 HarmonyOS", "粗柱信号 + 填充扇形 WiFi + 灰框电池 + 华为三键"],
+  ["hyperos", "小米 HyperOS", "四格直柱信号 + 实心电池 + 小米三键"],
+  ["origin", "vivo OriginOS", "细柱信号 + 紧凑电池 + vivo 三键"],
+  ["oneui", "Samsung One UI", "直柱信号 + 数字回圈电池 + Samsung 三键"],
+  ["pixel", "Google Pixel", "四格直柱 + 三角 WiFi + 紧凑电池 + 手势细线"],
+];
+
+const DEVICE_PATCH = {
+  ios: { signalShape: 1, wifiStyle: 1, batteryType: 4, bottomStyle: "gesture", timeWeight: 600 },
+  harmony: { signalShape: 1, wifiStyle: 2, batteryType: 2, bottomStyle: "huawei" },
+  hyperos: { signalShape: 6, wifiStyle: 2, batteryType: 5, bottomStyle: "xiaomi" },
+  origin: { signalShape: 2, wifiStyle: 1, batteryType: 7, bottomStyle: "vivo" },
+  oneui: { signalShape: 6, wifiStyle: 4, batteryType: 1, bottomStyle: "samsung" },
+  pixel: { signalShape: 6, wifiStyle: 3, batteryType: 7, bottomStyle: "gestureThin" },
+};
+
+const BATTERY_TYPES = [
+  [1, "电池 1", "Samsung · 数字回圈"],
+  [2, "电池 2", "华为 / 荣耀 · 框内数字"],
+  [3, "电池 3", "华为 / 荣耀 · 经典外置数字"],
+  [4, "电池 4", "iPhone · 圆角框"],
+  [5, "电池 5", "小米 · 实心横向"],
+  [6, "电池 6", "OPPO · 胶囊细框"],
+  [7, "电池 7", "Pixel · 紧凑横向"],
+  [8, "电池 8", "Motorola · 竖向"],
+  [9, "电池 9", "参考胶囊 · 窄竖向"],
+  [10, "电池 10", "框内百分比徽章"],
+];
+
+const SIGNAL_SHAPES = [
+  [1, "信号 1 · 粗柱"], [2, "信号 2 · 细柱"], [3, "信号 3 · 点阵"], [4, "信号 4 · 弧形"],
+  [5, "信号 5 · 斜切柱"], [6, "信号 6 · 四格直柱"], [7, "信号 7 · 五格斜坡"], [8, "信号 8 · 参考圆三角形"],
+];
+
+const WIFI_STYLES = [
+  [1, "WiFi 1 · 安卓标准"], [2, "WiFi 2 · 填充扇形"], [3, "WiFi 3 · 填充三角"],
+  [4, "WiFi 4 · 空心扇面"], [5, "WiFi 5 · 双色粗弧"],
+];
+
+const NETWORK_OPTIONS = ["5G+", "5G", "4G+", "4G", "LTE", "H+", "3G", "E", "隐藏"];
 
 const ICON_OPTIONS = [
   ["home", "首页"], ["search", "搜索"], ["plus", "添加"], ["user", "我的"],
@@ -61,6 +158,581 @@ const NOTICE_BADGES = {
   facebook: { bg: "#1877f2", shape: "square" },
   instagram: { bg: "gradient", shape: "square" },
 };
+
+const PRESET_KEY = "screenshot-editor-presets-v41";
+
+function loadPresets() {
+  try {
+    const raw = localStorage.getItem(PRESET_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function roundedRect(ctx, x, y, width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + width, y, x + width, y + height, r);
+  ctx.arcTo(x + width, y + height, x, y + height, r);
+  ctx.arcTo(x, y + height, x, y, r);
+  ctx.arcTo(x, y, x + width, y, r);
+  ctx.closePath();
+}
+
+function coverRegion(ctx, img, x, y, w, h, style, color, opacity) {
+  if (style === "manual") return;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+  if (style === "blur") {
+    ctx.filter = `blur(${Math.max(8, w * 0.025)}px)`;
+    ctx.drawImage(img, x, y, w, h, x - 4, y - 4, w + 8, h + 8);
+    ctx.filter = "none";
+    ctx.fillStyle = `rgba(10, 12, 18, ${opacity / 220})`;
+  } else if (style === "light") {
+    ctx.fillStyle = `rgba(250, 251, 255, ${opacity / 100})`;
+  } else if (style === "custom") {
+    ctx.globalAlpha = opacity / 100;
+    ctx.fillStyle = color;
+  } else {
+    ctx.fillStyle = `rgba(8, 10, 14, ${opacity / 100})`;
+  }
+  ctx.fillRect(x, y, w, h);
+  ctx.restore();
+}
+
+function textWidth(ctx, text, font) {
+  ctx.save();
+  ctx.font = font;
+  const w = ctx.measureText(text).width;
+  ctx.restore();
+  return w;
+}
+
+const sysFont = (px) => `700 ${px}px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif`;
+
+function signalShapeWidth(ctx, shape, s, c) {
+  if (shape === 8) return 13 * s;
+  if (shape === 4) return 12 * s;
+  const cols = shape === 7 ? 5 : 4;
+  const bw = shape === 2 ? c.signalLineWidth * 0.7 : c.signalLineWidth;
+  return cols * bw * s + (cols - 1) * c.signalBarGap * s;
+}
+
+function drawSignalShape(ctx, x, cy, s, bars, color, shape, c) {
+  const bottom = cy + 5 * s;
+  const gap = c.signalBarGap * s;
+  const lw = c.signalLineWidth * s;
+  const round = c.signalCap === "round";
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  ctx.lineCap = "round";
+  if (shape === 8) {
+    ctx.globalAlpha = bars > 0 ? 1 : 0.28;
+    ctx.beginPath();
+    ctx.moveTo(x, bottom);
+    ctx.lineTo(x + 13 * s, bottom);
+    ctx.lineTo(x + 13 * s, bottom - 10 * s);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
+  if (shape === 4) {
+    ctx.lineWidth = lw * 0.8;
+    for (let i = 0; i < 4; i += 1) {
+      ctx.globalAlpha = i < bars ? 1 : 0.26;
+      ctx.beginPath();
+      ctx.arc(x + 1 * s, bottom, (2.6 + i * (2.3 + c.signalLineGap * 0.5)) * s, -Math.PI / 2, 0);
+      ctx.stroke();
+    }
+    ctx.restore();
+    return;
+  }
+  if (shape === 3) {
+    const r = lw * 0.48;
+    for (let i = 0; i < 4; i += 1) {
+      const dots = i + 1;
+      for (let d = 0; d < dots; d += 1) {
+        ctx.globalAlpha = i < bars ? 1 : 0.26;
+        ctx.beginPath();
+        ctx.arc(x + r + i * (r * 2 + gap), bottom - r - d * (r * 2 + c.signalLineGap * s), r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+    return;
+  }
+  const cols = shape === 7 ? 5 : 4;
+  const bw = shape === 2 ? lw * 0.7 : lw;
+  for (let i = 0; i < cols; i += 1) {
+    const active = i < Math.round(bars * cols / 4);
+    ctx.globalAlpha = active ? 1 : 0.26;
+    let bh;
+    if (shape === 6) bh = (3.5 + i * 2.4) * s;
+    else if (shape === 7) bh = (2.4 + i * 2.0) * s;
+    else bh = (3.3 + i * 2.25) * s;
+    const bx = x + i * (bw + gap);
+    if (shape === 5) {
+      const slant = (c.signalLineGap + 1) * s;
+      ctx.beginPath();
+      ctx.moveTo(bx, bottom);
+      ctx.lineTo(bx, bottom - bh + slant);
+      ctx.lineTo(bx + bw, bottom - bh);
+      ctx.lineTo(bx + bw, bottom);
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      roundedRect(ctx, bx, bottom - bh, bw, bh, round ? bw / 2 : 0.6 * s);
+      ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+function networkTypeWidth(ctx, type, s) {
+  if (type === "隐藏") return 0;
+  return textWidth(ctx, type, sysFont(8.9 * s)) + 1.5 * s;
+}
+
+function drawNetworkType(ctx, type, x, cy, s, color) {
+  if (type === "隐藏") return;
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.font = sysFont(8.9 * s);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(type, x, cy + 0.25 * s);
+  ctx.restore();
+}
+
+function drawDataArrows(ctx, x, cy, s, color) {
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x + 2.4 * s, cy - 4.4 * s);
+  ctx.lineTo(x + 4.8 * s, cy - 1.4 * s);
+  ctx.lineTo(x, cy - 1.4 * s);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(x + 6.6 * s, cy + 4.4 * s);
+  ctx.lineTo(x + 9 * s, cy + 1.4 * s);
+  ctx.lineTo(x + 4.2 * s, cy + 1.4 * s);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawQuestion(ctx, x, cy, s, color) {
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.font = sysFont(10 * s);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText("?", x, cy + 0.4 * s);
+  ctx.restore();
+}
+
+function drawSpeedLines(ctx, x, cy, s, color, lines) {
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  if (lines.length === 1) {
+    ctx.font = `600 ${7.2 * s}px system-ui, sans-serif`;
+    ctx.fillText(lines[0], x, cy);
+  } else {
+    ctx.font = `600 ${6.2 * s}px system-ui, sans-serif`;
+    ctx.fillText(lines[0], x, cy - 3.4 * s);
+    ctx.fillText(lines[1], x, cy + 3.6 * s);
+  }
+  ctx.restore();
+}
+
+function speedWidth(ctx, s, lines) {
+  const font = lines.length === 1 ? `600 ${7.2 * s}px system-ui, sans-serif` : `600 ${6.2 * s}px system-ui, sans-serif`;
+  return Math.max(...lines.map((l) => textWidth(ctx, l, font)));
+}
+
+function drawMark(ctx, x, cy, s, color, kind) {
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "center";
+  if (kind === "mark1") {
+    ctx.lineWidth = 1 * s;
+    roundedRect(ctx, x, cy - 4.6 * s, 13 * s, 9.2 * s, 2.2 * s);
+    ctx.stroke();
+    ctx.font = sysFont(6.4 * s);
+    ctx.fillText("HD", x + 6.5 * s, cy + 0.3 * s);
+  } else if (kind === "mark2") {
+    ctx.font = sysFont(5.6 * s);
+    ctx.fillText("Vo", x + 5.5 * s, cy - 3.2 * s);
+    ctx.fillText("LTE", x + 5.5 * s, cy + 3.4 * s);
+  } else if (kind === "mark3") {
+    ctx.font = sysFont(8.6 * s);
+    ctx.textAlign = "left";
+    ctx.fillText("5G", x, cy + 0.3 * s);
+  } else {
+    ctx.font = sysFont(8.6 * s);
+    ctx.textAlign = "left";
+    ctx.fillText("4G", x, cy + 0.3 * s);
+  }
+  ctx.restore();
+}
+
+function markWidth(ctx, s, kind) {
+  if (kind === "mark1") return 13 * s;
+  if (kind === "mark2") return 11 * s;
+  return textWidth(ctx, kind === "mark3" ? "5G" : "4G", sysFont(8.6 * s));
+}
+
+function wifiSectorPath(ctx, cx, cy, r) {
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.arc(cx, cy, r, Math.PI * 1.25, Math.PI * 1.75);
+  ctx.closePath();
+}
+
+function drawWifi(ctx, x, cy, scale, color, strength, style) {
+  const s = scale;
+  const cx = x + 7.5 * s;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineCap = "round";
+  if (style === 2) {
+    const apexY = cy + 5.5 * s;
+    ctx.globalAlpha = 0.25;
+    wifiSectorPath(ctx, cx, apexY, 8 * s);
+    ctx.fill();
+    ctx.globalAlpha = strength > 0 ? 1 : 0.25;
+    const frac = [0, 0.42, 0.72, 1][Math.max(0, Math.min(3, strength))];
+    if (frac > 0) {
+      wifiSectorPath(ctx, cx, apexY, 8 * s * frac);
+      ctx.fill();
+    }
+  } else if (style === 3) {
+    ctx.globalAlpha = strength > 0 ? 1 : 0.25;
+    ctx.beginPath();
+    ctx.moveTo(cx - 7 * s, cy - 4.5 * s);
+    ctx.lineTo(cx + 7 * s, cy - 4.5 * s);
+    ctx.lineTo(cx, cy + 5.5 * s);
+    ctx.closePath();
+    ctx.fill();
+  } else if (style === 4) {
+    ctx.globalAlpha = strength > 0 ? 1 : 0.25;
+    wifiSectorPath(ctx, cx, cy + 5.5 * s, 8 * s);
+    ctx.moveTo(cx + 2.2 * s, cy + 5.5 * s);
+    ctx.arc(cx, cy + 5.5 * s, 2.2 * s, 0, Math.PI * 2);
+    ctx.fill("evenodd");
+  } else if (style === 5) {
+    const dim = "#c4c8cb";
+    ctx.lineWidth = 2.6 * s;
+    [[7, 3], [4.6, 2]].forEach(([r, level]) => {
+      ctx.strokeStyle = strength >= level ? color : dim;
+      ctx.beginPath();
+      ctx.arc(cx, cy + 3.6 * s, r * s, Math.PI * 1.22, Math.PI * 1.78);
+      ctx.stroke();
+    });
+    ctx.fillStyle = strength > 0 ? color : dim;
+    ctx.beginPath();
+    ctx.arc(cx, cy + 5.2 * s, 1.6 * s, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    ctx.lineWidth = 1.55 * s;
+    [[7, 3], [4.8, 2], [2.4, 1]].forEach(([r, level]) => {
+      ctx.globalAlpha = strength >= level ? 1 : 0.22;
+      ctx.beginPath();
+      ctx.arc(cx, cy + 3.4 * s, r * s, Math.PI * 1.22, Math.PI * 1.78);
+      ctx.stroke();
+    });
+    ctx.globalAlpha = strength > 0 ? 1 : 0.22;
+    ctx.beginPath();
+    ctx.arc(cx, cy + 5 * s, 1.25 * s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawWifiArrows(ctx, x, cy, s, color) {
+  drawDataArrows(ctx, x, cy, s, color);
+}
+
+function drawBolt(ctx, cx, cy, s, boltColor) {
+  ctx.save();
+  ctx.fillStyle = boltColor;
+  ctx.beginPath();
+  ctx.moveTo(cx + 1.8 * s, cy - 6.2 * s);
+  ctx.lineTo(cx - 2.8 * s, cy + 0.9 * s);
+  ctx.lineTo(cx - 0.5 * s, cy + 0.9 * s);
+  ctx.lineTo(cx - 1.8 * s, cy + 6.2 * s);
+  ctx.lineTo(cx + 2.8 * s, cy - 0.9 * s);
+  ctx.lineTo(cx + 0.5 * s, cy - 0.9 * s);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function batteryInnerColor(c) {
+  if (c.batteryInnerColor === "green") return "#34c759";
+  if (c.batteryInnerColor === "icon") return c.iconColor;
+  if (c.battery <= 20) return "#ff4d58";
+  if (c.battery <= 50) return "#ffc53d";
+  return "#34c759";
+}
+
+function batteryBodyWidth(type, s) {
+  if (type === 7) return 19.6 * s;
+  if (type === 8) return 11.7 * s;
+  if (type === 9) return 8.1 * s;
+  return 24.5 * s;
+}
+
+function drawBatteryBody(ctx, type, bx, cy, s, c) {
+  const val = Math.max(0, Math.min(100, c.battery));
+  const color = c.iconColor;
+  const inner = batteryInnerColor(c);
+  const vertical = type === 8 || type === 9;
+  const w = vertical ? (type === 8 ? 10 * s : 6.4 * s) : (type === 7 ? 18 * s : 22 * s);
+  const h = vertical ? 20 * s : (type === 7 ? 8.4 * s : 10.5 * s);
+  const cap = () => {
+    ctx.fillStyle = color;
+    if (vertical) roundedRect(ctx, bx + w / 2 - 2 * s, cy - h / 2 - 1.6 * s, 4 * s, 1.6 * s, 0.8 * s);
+    else roundedRect(ctx, bx + w + 1.3 * s, cy - 2.2 * s, 1.7 * s, 4.4 * s, 0.85 * s);
+    ctx.fill();
+  };
+  const fillRatio = (pad, radius) => {
+    ctx.fillStyle = inner;
+    if (vertical) {
+      const ih = (h - pad * 2) * val / 100;
+      roundedRect(ctx, bx + pad, cy + h / 2 - pad - ih, w - pad * 2, ih, radius);
+    } else {
+      const iw = (w - pad * 2) * val / 100;
+      roundedRect(ctx, bx + pad, cy - h / 2 + pad, iw, h - pad * 2, radius);
+    }
+    ctx.fill();
+  };
+  ctx.save();
+  ctx.lineCap = "round";
+  if (type === 5) {
+    ctx.fillStyle = inner;
+    roundedRect(ctx, bx, cy - h / 2, w, h, 3.2 * s);
+    ctx.fill();
+    cap();
+  } else if (vertical) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.1 * s;
+    ctx.globalAlpha = 0.75;
+    roundedRect(ctx, bx, cy - h / 2, w, h, 2.6 * s);
+    ctx.stroke();
+    cap();
+    ctx.globalAlpha = 1;
+    fillRatio(1.4 * s, 1.2 * s);
+    if (type === 9 && c.batteryCharging) drawBolt(ctx, bx + w / 2, cy, s * 0.7, color === "#ffffff" ? "#111318" : "#ffffff");
+  } else {
+    const border = type === 2 ? "#d3d3d3" : color;
+    ctx.strokeStyle = border;
+    ctx.lineWidth = type === 6 ? 0.8 * s : 1.1 * s;
+    ctx.globalAlpha = type === 2 || type === 6 ? 1 : 0.65;
+    roundedRect(ctx, bx, cy - h / 2, w, h, type === 6 ? h / 2 : 3.2 * s);
+    ctx.stroke();
+    cap();
+    ctx.globalAlpha = 1;
+    fillRatio(1.6 * s, 1.4 * s);
+  }
+  if (type === 1 || type === 10) {
+    const badgeR = type === 1 ? 4.6 * s : 0;
+    const bw2 = type === 10 ? 12 * s : badgeR * 2;
+    const bx2 = bx + w / 2 - bw2 / 2;
+    ctx.fillStyle = type === 1 ? color : inner;
+    if (type === 1) {
+      ctx.beginPath();
+      ctx.arc(bx + w / 2, cy, badgeR, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      roundedRect(ctx, bx2, cy - 3.6 * s, bw2, 7.2 * s, 2 * s);
+      ctx.fill();
+    }
+    ctx.fillStyle = type === 1 ? (color === "#ffffff" ? "#111318" : "#ffffff") : "#ffffff";
+    ctx.font = `700 ${5.2 * s}px system-ui, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(Math.round(val)), bx + w / 2, cy + 0.3 * s);
+  }
+  if (c.batteryCharging && type !== 9) {
+    drawBolt(ctx, bx + w / 2, cy, s * (vertical ? 0.7 : 0.85), inner === "#34c759" || color === "#ffffff" ? "#111318" : "#ffffff");
+  }
+  ctx.restore();
+}
+
+function drawBatteryNumber(ctx, x, cy, s, c, withPercent) {
+  const color = c.iconColor;
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.font = `600 ${7 * s}px system-ui, sans-serif`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(withPercent ? `${Math.round(c.battery)}%` : String(Math.round(c.battery)), x, cy + 0.3 * s);
+  ctx.restore();
+}
+
+function drawExtraBattery(ctx, id, x, cy, s, c) {
+  const gray = "#c4c8cb";
+  const green = "#34c759";
+  ctx.save();
+  ctx.lineCap = "round";
+  const hFrame = (w, h, stroke, fill, ratio, num) => {
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 1.1 * s;
+    roundedRect(ctx, x, cy - h / 2, w, h, 3.2 * s);
+    ctx.stroke();
+    ctx.fillStyle = stroke;
+    roundedRect(ctx, x + w + 1.3 * s, cy - 2.2 * s, 1.7 * s, 4.4 * s, 0.85 * s);
+    ctx.fill();
+    if (fill) {
+      ctx.fillStyle = fill;
+      const iw = (w - 3.2 * s) * ratio;
+      roundedRect(ctx, x + 1.6 * s, cy - h / 2 + 1.6 * s, iw, h - 3.2 * s, 1.4 * s);
+      ctx.fill();
+    }
+    if (num !== undefined) {
+      ctx.fillStyle = "#ffffff";
+      ctx.font = `700 ${6 * s}px system-ui, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(num, x + w / 2, cy + 0.3 * s);
+    }
+  };
+  if (id === "batt11") hFrame(22 * s, 10.5 * s, gray, green, 0.51, "51");
+  else if (id === "batt12") hFrame(22 * s, 10.5 * s, gray, green, 0.3, "30");
+  else if (id === "batt13") hFrame(22 * s, 10.5 * s, gray, "#ff4d58", 0.15);
+  else if (id === "batt14") {
+    ctx.fillStyle = gray;
+    roundedRect(ctx, x, cy - 5.2 * s, 22 * s, 10.4 * s, 5.2 * s);
+    ctx.fill();
+    ctx.fillStyle = "#111318";
+    ctx.font = `700 ${6.4 * s}px system-ui, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("75", x + 11 * s, cy + 0.3 * s);
+  } else if (id === "batt15") {
+    ctx.fillStyle = c.iconColor;
+    roundedRect(ctx, x, cy - 10 * s, 10 * s, 20 * s, 2.6 * s);
+    ctx.fill();
+    roundedRect(ctx, x + 3 * s, cy - 11.6 * s, 4 * s, 1.6 * s, 0.8 * s);
+    ctx.fill();
+  } else if (id === "batt16") {
+    ctx.strokeStyle = c.iconColor;
+    ctx.lineWidth = 1.1 * s;
+    roundedRect(ctx, x, cy - 10 * s, 10 * s, 20 * s, 2.6 * s);
+    ctx.stroke();
+    roundedRect(ctx, x + 3 * s, cy - 11.6 * s, 4 * s, 1.6 * s, 0.8 * s);
+    ctx.fill();
+    drawBolt(ctx, x + 5 * s, cy, s * 0.75, c.iconColor);
+  } else if (id === "powersave") {
+    ctx.strokeStyle = c.iconColor;
+    ctx.lineWidth = 1.3 * s;
+    ctx.beginPath();
+    ctx.moveTo(x + 2 * s, cy + 5 * s);
+    ctx.quadraticCurveTo(x + 1 * s, cy - 4 * s, x + 11 * s, cy - 5.4 * s);
+    ctx.quadraticCurveTo(x + 12 * s, cy + 3 * s, x + 5 * s, cy + 4.6 * s);
+    ctx.quadraticCurveTo(x + 3.4 * s, cy + 4.8 * s, x + 2 * s, cy + 5 * s);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + 3 * s, cy + 4 * s);
+    ctx.quadraticCurveTo(x + 6 * s, cy + 1 * s, x + 9.6 * s, cy - 3 * s);
+    ctx.stroke();
+  } else if (id === "chargeMark1") {
+    drawBolt(ctx, x + 4 * s, cy, s, c.iconColor);
+  }
+  ctx.restore();
+}
+
+function extraBatteryWidth(id, s) {
+  if (id === "batt15" || id === "batt16") return 10 * s;
+  if (id === "powersave") return 13 * s;
+  if (id === "chargeMark1") return 8 * s;
+  return 24.5 * s;
+}
+
+function drawOtherIcon(ctx, id, x, cy, s, color) {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 1.4 * s;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  if (id === "headphone1") {
+    ctx.beginPath();
+    ctx.arc(x + 6.5 * s, cy + 1 * s, 5.6 * s, Math.PI, 0);
+    ctx.stroke();
+    roundedRect(ctx, x + 0.4 * s, cy + 0.6 * s, 3 * s, 5 * s, 1.2 * s);
+    ctx.fill();
+    roundedRect(ctx, x + 9.6 * s, cy + 0.6 * s, 3 * s, 5 * s, 1.2 * s);
+    ctx.fill();
+  } else if (id === "vibrate1") {
+    roundedRect(ctx, x + 4.2 * s, cy - 5.4 * s, 5.6 * s, 10.8 * s, 1.6 * s);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + 1.6 * s, cy - 3 * s);
+    ctx.lineTo(x + 1.6 * s, cy + 3 * s);
+    ctx.moveTo(x + 12.4 * s, cy - 3 * s);
+    ctx.lineTo(x + 12.4 * s, cy + 3 * s);
+    ctx.stroke();
+  } else if (id === "nfc1") {
+    ctx.font = sysFont(9.5 * s);
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText("N", x + 1.5 * s, cy + 0.4 * s);
+    ctx.beginPath();
+    ctx.arc(x + 4 * s, cy, 6.4 * s, -Math.PI * 0.32, Math.PI * 0.32);
+    ctx.stroke();
+  } else if (id === "eyecare1") {
+    ctx.beginPath();
+    ctx.moveTo(x + 0.6 * s, cy);
+    ctx.quadraticCurveTo(x + 6.5 * s, cy - 6.4 * s, x + 12.4 * s, cy);
+    ctx.quadraticCurveTo(x + 6.5 * s, cy + 6.4 * s, x + 0.6 * s, cy);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x + 6.5 * s, cy, 2.2 * s, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (id === "alarm1") {
+    ctx.beginPath();
+    ctx.arc(x + 6.5 * s, cy + 0.8 * s, 4.8 * s, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + 6.5 * s, cy - 1.6 * s);
+    ctx.lineTo(x + 6.5 * s, cy + 0.8 * s);
+    ctx.lineTo(x + 8.4 * s, cy + 2 * s);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + 2 * s, cy - 4.6 * s);
+    ctx.lineTo(x + 4.2 * s, cy - 6.2 * s);
+    ctx.moveTo(x + 11 * s, cy - 4.6 * s);
+    ctx.lineTo(x + 8.8 * s, cy - 6.2 * s);
+    ctx.stroke();
+  } else if (id === "bluetooth1") {
+    ctx.beginPath();
+    ctx.moveTo(x + 3 * s, cy - 3.4 * s);
+    ctx.lineTo(x + 10 * s, cy + 3.4 * s);
+    ctx.lineTo(x + 6.5 * s, cy + 6 * s);
+    ctx.lineTo(x + 6.5 * s, cy - 6 * s);
+    ctx.lineTo(x + 10 * s, cy - 3.4 * s);
+    ctx.lineTo(x + 3 * s, cy + 3.4 * s);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
 
 function drawBadge(ctx, badge, x, cy, s) {
   if (badge.bg === "gradient") {
@@ -215,232 +887,10 @@ function drawNotice(ctx, type, x, cy, scale, color, customImage) {
   ctx.restore();
 }
 
-function roundedRect(ctx, x, y, width, height, radius) {
-  const r = Math.min(radius, width / 2, height / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + width, y, x + width, y + height, r);
-  ctx.arcTo(x + width, y + height, x, y + height, r);
-  ctx.arcTo(x, y + height, x, y, r);
-  ctx.arcTo(x, y, x + width, y, r);
-  ctx.closePath();
-}
-
-function coverRegion(ctx, img, x, y, w, h, style, color, opacity) {
-  if (style === "manual") return;
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(x, y, w, h);
-  ctx.clip();
-  if (style === "blur") {
-    ctx.filter = `blur(${Math.max(8, w * 0.025)}px)`;
-    ctx.drawImage(img, x, y, w, h, x - 4, y - 4, w + 8, h + 8);
-    ctx.filter = "none";
-    ctx.fillStyle = `rgba(10, 12, 18, ${opacity / 220})`;
-  } else if (style === "light") {
-    ctx.fillStyle = `rgba(250, 251, 255, ${opacity / 100})`;
-  } else if (style === "custom") {
-    ctx.globalAlpha = opacity / 100;
-    ctx.fillStyle = color;
-  } else {
-    ctx.fillStyle = `rgba(8, 10, 14, ${opacity / 100})`;
-  }
-  ctx.fillRect(x, y, w, h);
-  ctx.restore();
-}
-
-function drawSignal(ctx, x, cy, scale, bars, color) {
-  ctx.fillStyle = color;
-  const bw = 2.15 * scale;
-  const gap = 1.35 * scale;
-  for (let i = 0; i < 4; i += 1) {
-    const bh = (3.3 + i * 2.25) * scale;
-    ctx.globalAlpha = i < bars ? 1 : 0.28;
-    roundedRect(ctx, x + i * (bw + gap), cy + 5 * scale - bh, bw, bh, 0.8 * scale);
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-}
-
-function networkTypeWidth(type, scale) {
-  if (type === "隐藏") return 0;
-  return (type === "LTE" ? 17 : 14.5) * scale;
-}
-
-function drawNetworkType(ctx, type, x, cy, scale, color) {
-  if (type === "隐藏") return;
-  const width = networkTypeWidth(type, scale);
-  const fontSize = type === "LTE" ? 8.1 : 8.9;
-  ctx.save();
-  ctx.fillStyle = color;
-  ctx.font = `700 ${fontSize * scale}px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(type, x + width / 2, cy + 0.25 * scale);
-  ctx.restore();
-}
-
-function wifiSectorPath(ctx, cx, cy, r) {
-  ctx.beginPath();
-  ctx.moveTo(cx, cy);
-  ctx.arc(cx, cy, r, Math.PI * 1.25, Math.PI * 1.75);
-  ctx.closePath();
-}
-
-function drawWifi(ctx, x, cy, scale, color, strength, style) {
-  const s = scale;
-  const cx = x + 7.5 * s;
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.fillStyle = color;
-  ctx.lineCap = "round";
-  if (style === 2) {
-    const apexY = cy + 5.5 * s;
-    ctx.globalAlpha = 0.25;
-    wifiSectorPath(ctx, cx, apexY, 8 * s);
-    ctx.fill();
-    ctx.globalAlpha = strength > 0 ? 1 : 0.25;
-    const frac = [0, 0.42, 0.72, 1][Math.max(0, Math.min(3, strength))];
-    if (frac > 0) {
-      wifiSectorPath(ctx, cx, apexY, 8 * s * frac);
-      ctx.fill();
-    }
-  } else if (style === 3) {
-    ctx.globalAlpha = strength > 0 ? 1 : 0.25;
-    ctx.beginPath();
-    ctx.moveTo(cx - 7 * s, cy - 4.5 * s);
-    ctx.lineTo(cx + 7 * s, cy - 4.5 * s);
-    ctx.lineTo(cx, cy + 5.5 * s);
-    ctx.closePath();
-    ctx.fill();
-  } else if (style === 4) {
-    ctx.globalAlpha = strength > 0 ? 1 : 0.25;
-    wifiSectorPath(ctx, cx, cy + 5.5 * s, 8 * s);
-    ctx.moveTo(cx + 2.2 * s, cy + 5.5 * s);
-    ctx.arc(cx, cy + 5.5 * s, 2.2 * s, 0, Math.PI * 2);
-    ctx.fill("evenodd");
-  } else if (style === 5) {
-    const dim = "#c4c8cb";
-    ctx.lineWidth = 2.6 * s;
-    [[7, 3], [4.6, 2]].forEach(([r, level]) => {
-      ctx.strokeStyle = strength >= level ? color : dim;
-      ctx.beginPath();
-      ctx.arc(cx, cy + 3.6 * s, r * s, Math.PI * 1.22, Math.PI * 1.78);
-      ctx.stroke();
-    });
-    ctx.fillStyle = strength > 0 ? color : dim;
-    ctx.beginPath();
-    ctx.arc(cx, cy + 5.2 * s, 1.6 * s, 0, Math.PI * 2);
-    ctx.fill();
-  } else {
-    ctx.lineWidth = 1.55 * s;
-    [[7, 3], [4.8, 2], [2.4, 1]].forEach(([r, level]) => {
-      ctx.globalAlpha = strength >= level ? 1 : 0.22;
-      ctx.beginPath();
-      ctx.arc(cx, cy + 3.4 * s, r * s, Math.PI * 1.22, Math.PI * 1.78);
-      ctx.stroke();
-    });
-    ctx.globalAlpha = strength > 0 ? 1 : 0.22;
-    ctx.beginPath();
-    ctx.arc(cx, cy + 5 * s, 1.25 * s, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.restore();
-}
-
-function drawBolt(ctx, cx, cy, s, boltColor) {
-  ctx.save();
-  ctx.fillStyle = boltColor;
-  ctx.beginPath();
-  ctx.moveTo(cx + 1.8 * s, cy - 6.2 * s);
-  ctx.lineTo(cx - 2.8 * s, cy + 0.9 * s);
-  ctx.lineTo(cx - 0.5 * s, cy + 0.9 * s);
-  ctx.lineTo(cx - 1.8 * s, cy + 6.2 * s);
-  ctx.lineTo(cx + 2.8 * s, cy - 0.9 * s);
-  ctx.lineTo(cx + 0.5 * s, cy - 0.9 * s);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawBattery(ctx, x, cy, scale, value, color, showNumber, style, charging, fillColor) {
-  const w = 22 * scale;
-  const h = 10.5 * scale;
-  const green = "#34c759";
-  const gray = "#c4c8cb";
-  const clamped = Math.max(0, Math.min(100, value));
-  const chargeColor = clamped <= 20 && !charging ? "#ff4d58" : (charging || fillColor === "green" ? green : color);
-  const inner = Math.max(1.5, (w - 3.2 * scale) * clamped / 100);
-  if (style === 2) {
-    ctx.strokeStyle = "#d3d3d3";
-    ctx.lineWidth = 1.1 * scale;
-    roundedRect(ctx, x, cy - h / 2, w, h, 3.2 * scale);
-    ctx.stroke();
-    ctx.fillStyle = "#d3d3d3";
-    roundedRect(ctx, x + w + 1.3 * scale, cy - 2.2 * scale, 1.7 * scale, 4.4 * scale, 0.85 * scale);
-    ctx.fill();
-    ctx.fillStyle = chargeColor;
-    roundedRect(ctx, x + 1.6 * scale, cy - h / 2 + 1.6 * scale, inner, h - 3.2 * scale, 1.35 * scale);
-    ctx.fill();
-  } else if (style === 3) {
-    ctx.globalAlpha = 0.32;
-    ctx.fillStyle = color;
-    roundedRect(ctx, x, cy - h / 2, w, h, 3.2 * scale);
-    ctx.fill();
-    roundedRect(ctx, x + w + 1.3 * scale, cy - 2.2 * scale, 1.7 * scale, 4.4 * scale, 0.85 * scale);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = chargeColor;
-    roundedRect(ctx, x + 1.2 * scale, cy - h / 2 + 1.2 * scale, inner + 0.8 * scale, h - 2.4 * scale, 2 * scale);
-    ctx.fill();
-  } else if (style === 4) {
-    const chargeW = Math.max(2 * scale, w * clamped / 100);
-    ctx.fillStyle = gray;
-    roundedRect(ctx, x, cy - h / 2, w, h, 3.2 * scale);
-    ctx.fill();
-    roundedRect(ctx, x + w + 1.3 * scale, cy - 2.2 * scale, 1.7 * scale, 4.4 * scale, 0.85 * scale);
-    ctx.fill();
-    ctx.save();
-    roundedRect(ctx, x, cy - h / 2, w, h, 3.2 * scale);
-    ctx.clip();
-    ctx.fillStyle = chargeColor;
-    ctx.fillRect(x, cy - h / 2, chargeW, h);
-    ctx.restore();
-    ctx.fillStyle = chargeColor === "#ffffff" ? "#111318" : "#ffffff";
-    ctx.font = `700 ${7.4 * scale}px system-ui, sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(String(Math.round(clamped)), x + Math.max(chargeW / 2, 7 * scale), cy + 0.4 * scale);
-    return;
-  } else {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1.1 * scale;
-    ctx.globalAlpha = 0.55;
-    roundedRect(ctx, x, cy - h / 2, w, h, 3.2 * scale);
-    ctx.stroke();
-    ctx.fillStyle = color;
-    roundedRect(ctx, x + w + 1.3 * scale, cy - 2.2 * scale, 1.7 * scale, 4.4 * scale, 0.85 * scale);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = chargeColor;
-    roundedRect(ctx, x + 1.6 * scale, cy - h / 2 + 1.6 * scale, inner, h - 3.2 * scale, 1.35 * scale);
-    ctx.fill();
-  }
-  if (charging) drawBolt(ctx, x + w / 2, cy, scale, chargeColor === "#ffffff" ? "#111318" : (chargeColor === green ? "#111318" : "#ffffff"));
-  if (showNumber && !charging) {
-    ctx.fillStyle = clamped > 45 ? (color === "#ffffff" ? "#111318" : "#ffffff") : color;
-    ctx.font = `600 ${6.7 * scale}px system-ui, sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(String(value), x + w / 2, cy + 0.15 * scale);
-  }
-}
-
 function drawEraseStrokes(ctx, strokes, w, h, c) {
   if (!strokes.length) return;
   const scale = Math.max(.62, w / 390);
   ctx.save();
-  ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = "source-over";
   ctx.beginPath();
   ctx.rect(0, 0, w, h * c.topHeight / 100);
@@ -466,73 +916,183 @@ function drawEraseStrokes(ctx, strokes, w, h, c) {
   ctx.restore();
 }
 
-function itemSide(c, key) {
-  if (key === "notices") return c.noticeSide || "left";
-  return c[`${key}Side`] || "right";
+function getItem(c, id) {
+  return c.items?.[id] || DEFAULT_ITEMS[id] || OFF_ITEM;
 }
 
-function drawTop(ctx, img, w, h, c, customNoticeImage) {
+function buildTopElements(ctx, w, c, customImages) {
+  const base = Math.max(0.62, w / 390);
+  const gs = base * Math.max(0.6, Math.min(1.6, c.iconScale / 100));
+  const els = [];
+  const wifiFirst = c.wifiSimOrder === "wifiFirst";
+  const wifiOrder = wifiFirst ? 26 : 44;
+  const add = (id, order, width, draw) => {
+    const item = getItem(c, id);
+    if (!item.on || width <= 0) return;
+    const s = gs * (item.size / 100);
+    els.push({
+      id, order, side: item.side,
+      width: width * (item.size / 100),
+      draw: (x, cy) => draw(x + item.dx * base, cy + item.dy * base, s),
+    });
+  };
+
+  const notices = (c.notificationIcons || []).filter((n) => n !== "custom");
+  if (notices.length) add("notices", 0, notices.length * 15 * gs, (x, cy, s) => {
+    let px = x;
+    for (const n of notices) {
+      px += 7.5 * s;
+      drawNotice(ctx, n, px, cy, s, c.iconColor, customImages.custom);
+      px += 7.5 * s;
+    }
+  });
+  (customImages.list || []).forEach((ci, i) => {
+    add(`custom${i + 1}`, 1 + i, 15 * gs, (x, cy, s) => drawNotice(ctx, "custom", x + 7.5 * s, cy, s, c.iconColor, ci.img));
+  });
+
+  const others = ["headphone1", "vibrate1", "nfc1", "eyecare1", "alarm1", "bluetooth1"];
+  others.forEach((id, i) => add(id, 10 + i, 14 * gs + (i < others.length - 1 ? c.otherGap * gs : 0), (x, cy, s) => drawOtherIcon(ctx, id, x, cy, s, c.iconColor)));
+
+  [["mark1", 20], ["mark2", 21], ["mark3", 22], ["mark4", 23]].forEach(([id, order]) => {
+    add(id, order, markWidth(ctx, gs, id), (x, cy, s) => drawMark(ctx, x, cy, s, c.iconColor, id));
+  });
+
+  add("speed2", 25, speedWidth(ctx, gs, [c.speed2Line1 || "4.81", c.speed2Line2 || "KB/s"]), (x, cy, s) => drawSpeedLines(ctx, x, cy, s, c.iconColor, [c.speed2Line1 || "4.81", c.speed2Line2 || "KB/s"]));
+  add("speed1", 24, speedWidth(ctx, gs, [c.speed1Text || "82.0 KB/S"]), (x, cy, s) => drawSpeedLines(ctx, x, cy, s, c.iconColor, [c.speed1Text || "82.0 KB/S"]));
+
+  const simDefs = [
+    { n: 1, baseOrder: 30, network: c.sim1Network, bars: c.sim1Bars },
+    { n: 2, baseOrder: 34, network: c.sim2Network, bars: c.sim2Bars },
+  ];
+  for (const sim of simDefs) {
+    if (sim.n === 2 && c.simCount < 2) continue;
+    const prefix = `sim${sim.n}`;
+    const numW = c.showSimNumber ? 6 * gs : 0;
+    const shapeW = signalShapeWidth(ctx, c.signalShape, gs, c);
+    const typeW = networkTypeWidth(ctx, sim.network, gs);
+    const callW = c.callMark !== "none" ? textWidth(ctx, c.callMark, sysFont(7.4 * gs)) + 2 * gs : 0;
+    add(`${prefix}Question`, sim.baseOrder, 8 * gs, (x, cy, s) => drawQuestion(ctx, x, cy, s, c.iconColor));
+    add(`${prefix}Bars`, sim.baseOrder + 1, numW + shapeW, (x, cy, s) => {
+      let px = x;
+      if (c.showSimNumber) {
+        ctx.save();
+        ctx.fillStyle = c.iconColor;
+        ctx.font = sysFont(6.4 * s);
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        ctx.fillText(String(sim.n), px, cy + 0.4 * s);
+        ctx.restore();
+        px += numW * (s / gs);
+      }
+      drawSignalShape(ctx, px, cy, s, sim.bars, c.iconColor, c.signalShape, c);
+    });
+    add(`${prefix}Arrow`, sim.baseOrder + 2, 9 * gs, (x, cy, s) => drawDataArrows(ctx, x, cy, s, c.iconColor));
+    add(`${prefix}Type`, sim.baseOrder + 3, typeW + callW, (x, cy, s) => {
+      let px = x;
+      if (c.callMark !== "none") {
+        ctx.save();
+        ctx.fillStyle = c.iconColor;
+        ctx.font = sysFont(7.4 * s);
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        ctx.fillText(c.callMark, px, cy + 0.3 * s);
+        ctx.restore();
+        px += callW * (s / gs);
+      }
+      drawNetworkType(ctx, sim.network, px, cy, s, c.iconColor);
+    });
+  }
+
+  add("signal6", 40, signalShapeWidth(ctx, 6, gs, c), (x, cy, s) => drawSignalShape(ctx, x, cy, s, c.sim1Bars, c.iconColor, 6, c));
+  add("signal7", 41, signalShapeWidth(ctx, 7, gs, c), (x, cy, s) => drawSignalShape(ctx, x, cy, s, c.sim1Bars, c.iconColor, 7, c));
+  add("signal8", 42, 13 * gs, (x, cy, s) => drawSignalShape(ctx, x, cy, s, c.sim1Bars, c.iconColor, 8, c));
+
+  add("wifiArrow1", wifiOrder, 9 * gs, (x, cy, s) => drawWifiArrows(ctx, x, cy, s, c.iconColor));
+  add("wifi", wifiOrder + 1, 15 * gs, (x, cy, s) => drawWifi(ctx, x, cy, s, c.iconColor, c.wifiStrength, c.wifiStyle));
+
+  const extras = ["powersave", "batt11", "batt12", "chargeMark1", "batt13", "batt14", "batt15", "batt16"];
+  extras.forEach((id, i) => add(id, 50 + i, extraBatteryWidth(id, gs), (x, cy, s) => drawExtraBattery(ctx, id, x, cy, s, c)));
+
+  const bType = c.batteryType;
+  const bodyW = batteryBodyWidth(bType, gs);
+  const vertical = bType === 8 || bType === 9;
+  const numOutside = c.batteryNumber && c.batteryNumberLayout !== "inside";
+  const numW = numOutside ? textWidth(ctx, `${Math.round(c.battery)}%`, `600 ${7 * gs}px system-ui, sans-serif`) + c.batteryGap * gs : 0;
+  add("battery", 60, bodyW + numW, (x, cy, s) => {
+    const bw = batteryBodyWidth(bType, s);
+    const nw = numOutside ? textWidth(ctx, `${Math.round(c.battery)}%`, `600 ${7 * s}px system-ui, sans-serif`) + c.batteryGap * s : 0;
+    const leftNum = c.batteryNumberLayout === "left";
+    const bx = leftNum ? x + nw : x;
+    if (numOutside) drawBatteryNumber(ctx, leftNum ? x : x + bw + c.batteryGap * s, cy, s, c, true);
+    drawBatteryBody(ctx, bType, bx, cy, s, c);
+    if (c.batteryNumber && c.batteryNumberLayout === "inside" && bType !== 1 && bType !== 10 && !vertical) {
+      ctx.save();
+      ctx.fillStyle = batteryInnerColor(c) === "#34c759" || c.iconColor === "#ffffff" ? "#111318" : "#ffffff";
+      if (c.battery > 45 && batteryInnerColor(c) !== c.iconColor) ctx.fillStyle = "#111318";
+      ctx.font = `700 ${6.2 * s}px system-ui, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(Math.round(c.battery)), bx + bw / 2 - 1 * s, cy + 0.3 * s);
+      ctx.restore();
+    }
+  });
+
+  return els.sort((a, b) => a.order - b.order);
+}
+
+function drawTop(ctx, img, w, h, c, customImages) {
   const th = h * c.topHeight / 100;
   const scale = Math.max(0.62, w / 390);
-  const s = scale * Math.max(0.6, Math.min(1.6, (c.iconScale || 100) / 100));
   coverRegion(ctx, img, 0, 0, w, th, c.topStyle, c.topColor, c.topOpacity);
   const cy = th / 2 + 0.5 * scale;
-  const gap = 6 * s;
-  const margin = 8 * s;
+  const gap = 6 * scale;
+  const margin = 8 * scale;
+
+  const weight = Math.max(100, Math.min(900, c.timeWeight));
+  const timeFont = `${weight} ${15 * scale * (c.timeSize / 100)}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+  const parts = [c.time || "00:00"];
+  if (c.showSuffix && c.timeSuffix) parts.push(c.timeSuffix);
+  if (c.showCarrier && c.carrier) parts.push(c.carrier);
+  const tGap = c.timeGap * scale;
+  const widths = parts.map((p) => textWidth(ctx, p, timeFont));
+  const totalW = widths.reduce((a, b) => a + b, 0) + tGap * (parts.length - 1);
 
   ctx.fillStyle = c.iconColor;
-  ctx.font = `600 ${15 * scale}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+  ctx.font = timeFont;
   ctx.textBaseline = "middle";
-  const timeText = c.time || "00:00";
-  const timeWidth = ctx.measureText(timeText).width;
-  if (c.timePosition === "center") {
-    ctx.textAlign = "center";
-    ctx.fillText(timeText, w / 2, cy);
-  } else if (c.timePosition === "right") {
-    ctx.textAlign = "right";
-    ctx.fillText(timeText, w * (1 - c.timeX / 100), cy);
-  } else {
-    ctx.textAlign = "left";
-    ctx.fillText(timeText, w * c.timeX / 100, cy);
-  }
+  let tx;
+  if (c.timePosition === "center") tx = w / 2 - totalW / 2;
+  else if (c.timePosition === "right") tx = w * (1 - c.timeX / 100) - totalW;
+  else tx = w * c.timeX / 100;
+  ctx.textAlign = "left";
+  let px = tx;
+  parts.forEach((p, i) => {
+    ctx.fillText(p, px, cy + c.timeOffsetY * scale);
+    px += widths[i] + tGap;
+  });
 
-  const notices = (c.notificationIcons || []).slice(0, 5);
-  const widths = {
-    notices: notices.length * 15 * s,
-    wifi: c.wifi ? 15 * s : 0,
-    signal: 17 * s + networkTypeWidth(c.network, s),
-    battery: 24.5 * s,
+  const els = buildTopElements(ctx, w, c, customImages);
+  const lefts = els.filter((e) => e.side === "left");
+  const rights = els.filter((e) => e.side !== "left");
+  const pairGap = (a, b) => {
+    if (!a || !b) return gap;
+    const ids = `${a.id}|${b.id}`;
+    if (ids === "wifi|wifiArrow1" || ids === "wifiArrow1|wifi") return c.wifiGap * scale;
+    return gap;
   };
-  const pos = {};
   let lx = margin;
-  if (c.timePosition === "left") lx = w * c.timeX / 100 + timeWidth + gap;
-  for (const key of ["notices", "wifi", "signal", "battery"]) {
-    if (itemSide(c, key) !== "left" || !widths[key]) continue;
-    pos[key] = lx;
-    lx += widths[key] + gap;
-  }
+  if (c.timePosition === "left") lx = tx + totalW + gap;
+  lefts.forEach((e, i) => {
+    e.draw(lx, cy);
+    lx += e.width + pairGap(e, lefts[i + 1]);
+  });
   let rx = w - margin;
-  for (const key of ["battery", "signal", "wifi", "notices"]) {
-    if (itemSide(c, key) !== "right" || !widths[key]) continue;
-    rx -= widths[key];
-    pos[key] = rx;
-    rx -= gap;
-  }
-
-  if (pos.notices !== undefined) {
-    let x = pos.notices;
-    for (const notice of notices) {
-      x += 7.5 * s;
-      drawNotice(ctx, notice, x, cy, s, c.iconColor, customNoticeImage);
-      x += 7.5 * s;
-    }
-  }
-  if (c.wifi && pos.wifi !== undefined) drawWifi(ctx, pos.wifi, cy, s, c.iconColor, c.wifiStrength, c.wifiStyle);
-  if (pos.signal !== undefined) {
-    drawSignal(ctx, pos.signal, cy, s, c.signalBars, c.iconColor);
-    drawNetworkType(ctx, c.network, pos.signal + 17 * s, cy, s, c.iconColor);
-  }
-  if (pos.battery !== undefined) drawBattery(ctx, pos.battery, cy, s, c.battery, c.iconColor, c.batteryNumber, c.batteryStyle, c.batteryCharging, c.batteryFill);
+  const rev = [...rights].reverse();
+  rev.forEach((e, i) => {
+    rx -= e.width;
+    e.draw(rx, cy);
+    rx -= pairGap(e, rev[i + 1]);
+  });
 }
 
 const NAV_PATH_DATA = {
@@ -567,6 +1127,51 @@ function drawNavIcon(ctx, type, x, y, size, color) {
   ctx.restore();
 }
 
+function drawThreeKeys(ctx, style, w, cy, scale, color) {
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = 1.7 * scale;
+  const back = (x, dir) => {
+    ctx.beginPath();
+    ctx.moveTo(x + 5.5 * scale * dir, cy - 6 * scale);
+    ctx.lineTo(x - 5.5 * scale * dir, cy);
+    ctx.lineTo(x + 5.5 * scale * dir, cy + 6 * scale);
+    if (style === "huawei") ctx.closePath();
+    ctx.stroke();
+  };
+  const recent = (x) => {
+    if (style === "samsung") {
+      ctx.beginPath();
+      ctx.moveTo(x, cy - 6 * scale);
+      ctx.lineTo(x, cy + 6 * scale);
+      ctx.stroke();
+    } else if (style === "xiaomi") {
+      roundedRect(ctx, x - 5.5 * scale, cy - 5.5 * scale, 11 * scale, 11 * scale, 1.5 * scale);
+      ctx.stroke();
+    } else if (style === "huawei") {
+      roundedRect(ctx, x - 5.5 * scale, cy - 5.5 * scale, 11 * scale, 11 * scale, 1.8 * scale);
+      ctx.stroke();
+    } else {
+      ctx.strokeRect(x - 5.5 * scale, cy - 5.5 * scale, 11 * scale, 11 * scale);
+    }
+  };
+  if (style === "threeRight") {
+    recent(w * .27);
+    ctx.beginPath();
+    ctx.arc(w * .5, cy, 6 * scale, 0, Math.PI * 2);
+    ctx.stroke();
+    back(w * .73, -1);
+  } else {
+    back(w * .27, 1);
+    ctx.beginPath();
+    ctx.arc(w * .5, cy, 6 * scale, 0, Math.PI * 2);
+    ctx.stroke();
+    recent(w * .73);
+  }
+}
+
 function drawBrandNavigation(ctx, style, w, y, bh, scale, color) {
   const cy = y + bh * .5;
   ctx.strokeStyle = color;
@@ -590,29 +1195,8 @@ function drawBrandNavigation(ctx, style, w, y, bh, scale, color) {
     ctx.lineTo(w * .73 - 4 * scale, cy);
     ctx.lineTo(w * .73 + 4 * scale, cy + 7 * scale);
     ctx.stroke();
-  } else if (style === "xiaomi") {
-    roundedRect(ctx, w * .27 - 5.5 * scale, cy - 5.5 * scale, 11 * scale, 11 * scale, 1.5 * scale);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(w * .5, cy, 6 * scale, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(w * .73 + 5 * scale, cy - 6 * scale);
-    ctx.lineTo(w * .73 - 5 * scale, cy);
-    ctx.lineTo(w * .73 + 5 * scale, cy + 6 * scale);
-    ctx.stroke();
   } else {
-    ctx.beginPath();
-    ctx.moveTo(w * .27 + 5.5 * scale, cy - 6 * scale);
-    ctx.lineTo(w * .27 - 5.5 * scale, cy);
-    ctx.lineTo(w * .27 + 5.5 * scale, cy + 6 * scale);
-    ctx.closePath();
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(w * .5, cy, 6 * scale, 0, Math.PI * 2);
-    ctx.stroke();
-    roundedRect(ctx, w * .73 - 5.5 * scale, cy - 5.5 * scale, 11 * scale, 11 * scale, 1.8 * scale);
-    ctx.stroke();
+    drawThreeKeys(ctx, style, w, cy, scale, color);
   }
 }
 
@@ -622,24 +1206,17 @@ function drawBottom(ctx, img, w, h, c) {
   const scale = Math.max(0.62, w / 390);
   coverRegion(ctx, img, 0, y, w, bh, c.bottomCover, c.bottomColor, c.bottomOpacity);
   const color = c.bottomIconColor;
-  if (c.bottomStyle === "gesture") {
+  const navScale = Math.max(0.6, Math.min(1.6, (c.navIconScale || 100) / 100));
+  if (c.bottomStyle === "gesture" || c.bottomStyle === "gestureThin") {
     ctx.fillStyle = color;
     ctx.globalAlpha = 0.92;
-    roundedRect(ctx, w * 0.34, y + bh * 0.72, w * 0.32, Math.max(3 * scale, bh * 0.085), 999);
+    const barH = c.bottomStyle === "gestureThin" ? Math.max(1.6 * scale, bh * 0.04) : Math.max(3 * scale, bh * 0.085);
+    roundedRect(ctx, w * 0.34, y + bh * 0.72, w * 0.32, barH, 999);
     ctx.fill();
     ctx.globalAlpha = 1;
-  } else if (["android", "vivo", "xiaomi", "huawei"].includes(c.bottomStyle)) {
-    const cy = y + bh / 2;
-    if (c.bottomStyle === "android") {
-      ctx.strokeStyle = color;
-      ctx.fillStyle = color;
-      ctx.lineWidth = 1.8 * scale;
-      ctx.beginPath(); ctx.moveTo(w*.27 + 5*scale, cy-6*scale); ctx.lineTo(w*.27-5*scale, cy); ctx.lineTo(w*.27+5*scale, cy+6*scale); ctx.closePath(); ctx.stroke();
-      ctx.beginPath(); ctx.arc(w*.5, cy, 6*scale, 0, Math.PI*2); ctx.stroke();
-      ctx.strokeRect(w*.73-5.5*scale, cy-5.5*scale, 11*scale, 11*scale);
-    } else {
-      drawBrandNavigation(ctx, c.bottomStyle, w, y, bh, scale, color);
-    }
+  } else if (["android", "threeLeft", "threeRight", "samsung", "vivo", "xiaomi", "huawei"].includes(c.bottomStyle)) {
+    if (c.bottomStyle === "android") drawThreeKeys(ctx, "android", w, y + bh / 2, scale, color);
+    else drawBrandNavigation(ctx, c.bottomStyle, w, y, bh, scale, color);
   } else {
     const isDock = c.bottomStyle === "dock";
     if (isDock) {
@@ -653,12 +1230,12 @@ function drawBottom(ctx, img, w, h, c) {
     const cy = y + bh * .49;
     for (let i = 0; i < count; i += 1) {
       const x = count === 1 ? w / 2 : left + (right - left) * i / (count - 1);
-      drawNavIcon(ctx, c.navIcons[i], x, cy, Math.min(25 * scale, bh * .38), color);
+      drawNavIcon(ctx, c.navIcons[i], x, cy, Math.min(25 * scale, bh * .38) * navScale, color);
     }
   }
 }
 
-function renderCanvas(canvas, img, config, strokes = [], customNoticeImage = null, originalOnly = false) {
+function renderCanvas(canvas, img, config, strokes = [], customImages = {}, originalOnly = false) {
   if (!canvas || !img) return;
   canvas.width = img.naturalWidth;
   canvas.height = img.naturalHeight;
@@ -668,7 +1245,7 @@ function renderCanvas(canvas, img, config, strokes = [], customNoticeImage = nul
   ctx.drawImage(img, 0, 0);
   if (!originalOnly) {
     drawEraseStrokes(ctx, strokes, canvas.width, canvas.height, config);
-    drawTop(ctx, img, canvas.width, canvas.height, config, customNoticeImage);
+    drawTop(ctx, img, canvas.width, canvas.height, config, customImages);
     drawBottom(ctx, img, canvas.width, canvas.height, config);
   }
 }
@@ -706,19 +1283,38 @@ function Toggle({ label, checked, onChange }) {
 function SideToggle({ value, onChange }) {
   return (
     <div className="side-toggle">
-      <button type="button" className={value === "left" ? "active" : ""} onClick={() => onChange("left")}>左</button>
-      <button type="button" className={value === "right" ? "active" : ""} onClick={() => onChange("right")}>右</button>
+      <button type="button" className={value === "left" ? "active" : ""} onClick={() => onChange("left")}>左侧</button>
+      <button type="button" className={value === "right" ? "active" : ""} onClick={() => onChange("right")}>右侧</button>
     </div>
   );
 }
 
-function SideRow({ label, value, onChange }) {
+function ItemCard({ badge, title, item, onPatch, onReset, children }) {
   return (
-    <div className="side-row">
-      <span>{label}</span>
-      <SideToggle value={value} onChange={onChange} />
+    <div className={`item-card ${item.on ? "on" : ""}`}>
+      <div className="item-head">
+        <span className="item-badge">{badge}</span>
+        <strong>{title}</strong>
+        {item.on && <button type="button" className="item-reset" onClick={onReset}>重置</button>}
+        <label className="mini-switch">
+          <input type="checkbox" checked={item.on} onChange={(e) => onPatch({ on: e.target.checked })} />
+        </label>
+      </div>
+      {item.on && (
+        <div className="item-body">
+          <div className="item-row"><span>显示位置</span><SideToggle value={item.side} onChange={(v) => onPatch({ side: v })} /></div>
+          <Range label="大小" value={item.size} min={60} max={160} step={5} suffix="%" onChange={(v) => onPatch({ size: v })} />
+          <Range label="左右位置" value={item.dx} min={-40} max={40} suffix="px" onChange={(v) => onPatch({ dx: v })} />
+          <Range label="上下位置" value={item.dy} min={-20} max={20} suffix="px" onChange={(v) => onPatch({ dy: v })} />
+          {children}
+        </div>
+      )}
     </div>
   );
+}
+
+function SectionTitle({ children, em }) {
+  return <div className="section-title"><span>{children}</span><em>{em}</em></div>;
 }
 
 export default function Home() {
@@ -731,18 +1327,35 @@ export default function Home() {
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const [eraseStrokes, setEraseStrokes] = useState([]);
   const [eraseMode, setEraseMode] = useState("off");
-  const [customNoticeImage, setCustomNoticeImage] = useState(null);
-  const [tab, setTab] = useState("top");
+  const [customIcons, setCustomIcons] = useState([]);
+  const [section, setSection] = useState("upload");
   const [dragging, setDragging] = useState(false);
   const [originalOnly, setOriginalOnly] = useState(false);
+  const [presets, setPresets] = useState([]);
+  const [presetName, setPresetName] = useState("");
+
+  useEffect(() => { setPresets(loadPresets()); }, []);
 
   const patch = useCallback((key, value) => setConfig((c) => ({ ...c, [key]: value })), []);
+  const patchItem = useCallback((id, changes) => setConfig((c) => ({
+    ...c,
+    items: { ...c.items, [id]: { ...(c.items[id] || DEFAULT_ITEMS[id] || OFF_ITEM), ...changes } },
+  })), []);
+  const resetItem = useCallback((id) => setConfig((c) => ({
+    ...c,
+    items: { ...c.items, [id]: { ...(DEFAULT_ITEMS[id] || OFF_ITEM) } },
+  })), []);
   const sizeText = useMemo(() => image ? `${image.naturalWidth} × ${image.naturalHeight}px` : "等待上传", [image]);
+  const customImages = useMemo(() => {
+    const map = { list: customIcons.map((ci, i) => ({ ...ci, slot: i + 1 })) };
+    if (customIcons[0]) map.custom = customIcons[0].img;
+    return map;
+  }, [customIcons]);
 
   useEffect(() => {
-    const raf = requestAnimationFrame(() => renderCanvas(canvasRef.current, image, config, eraseStrokes, customNoticeImage, originalOnly));
+    const raf = requestAnimationFrame(() => renderCanvas(canvasRef.current, image, config, eraseStrokes, customImages, originalOnly));
     return () => cancelAnimationFrame(raf);
-  }, [image, config, eraseStrokes, customNoticeImage, originalOnly]);
+  }, [image, config, eraseStrokes, customImages, originalOnly]);
 
   const openFile = useCallback((file) => {
     if (!file || !file.type.startsWith("image/")) return;
@@ -762,17 +1375,21 @@ export default function Home() {
 
   const download = useCallback((type = "png") => {
     if (!canvasRef.current || !image) return;
-    renderCanvas(canvasRef.current, image, config, eraseStrokes, customNoticeImage, false);
+    renderCanvas(canvasRef.current, image, config, eraseStrokes, customImages, false);
     const mime = type === "jpg" ? "image/jpeg" : "image/png";
     const link = document.createElement("a");
     link.download = `${fileName || "screenshot"}-edited.${type}`;
     link.href = canvasRef.current.toDataURL(mime, type === "jpg" ? 0.95 : undefined);
     link.click();
-  }, [config, customNoticeImage, eraseStrokes, fileName, image]);
+  }, [config, customImages, eraseStrokes, fileName, image]);
+
+  const applyDevice = (value) => {
+    setConfig((c) => ({ ...c, deviceType: value, ...(DEVICE_PATCH[value] || {}) }));
+  };
 
   const setBottomPreset = (value) => {
-    const heights = { gesture: 6.2, android: 6.5, vivo: 6.8, xiaomi: 6.8, huawei: 6.8, dock: 12.5, minimal: 8 };
-    setConfig((c) => ({ ...c, bottomStyle: value, bottomHeight: heights[value] }));
+    const heights = { gesture: 6.2, gestureThin: 5.2, threeLeft: 6.5, threeRight: 6.5, samsung: 6.5, android: 6.5, vivo: 6.8, xiaomi: 6.8, huawei: 6.8, dock: 12.5, minimal: 8 };
+    setConfig((c) => ({ ...c, bottomStyle: value, bottomHeight: heights[value] || c.bottomHeight }));
   };
 
   const toggleNotice = (value) => {
@@ -784,23 +1401,60 @@ export default function Home() {
     });
   };
 
-  const loadCustomNotice = (file) => {
-    if (!file || !file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const icon = new Image();
-      icon.onload = () => {
-        setCustomNoticeImage(icon);
-        setConfig((c) => ({
-          ...c,
-          notificationIcons: c.notificationIcons.includes("custom")
-            ? c.notificationIcons
-            : [...c.notificationIcons.slice(0, 4), "custom"],
-        }));
+  const addCustomIcons = (files) => {
+    const list = Array.from(files || []).filter((f) => f.type.startsWith("image/"));
+    setConfig((c) => {
+      const next = { ...c, items: { ...c.items } };
+      const room = 5 - customIcons.length;
+      list.slice(0, room).forEach((_, i) => {
+        const slot = customIcons.length + i + 1;
+        next.items[`custom${slot}`] = { ...(next.items[`custom${slot}`] || OFF_ITEM), on: true };
+      });
+      return next;
+    });
+    list.slice(0, 5 - customIcons.length).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const icon = new Image();
+        icon.onload = () => setCustomIcons((prev) => prev.length >= 5 ? prev : [...prev, { id: `${Date.now()}-${file.name}`, name: file.name.replace(/\.[^.]+$/, ""), img: icon }]);
+        icon.src = reader.result;
       };
-      icon.src = reader.result;
-    };
-    reader.readAsDataURL(file);
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeCustomIcon = (index) => {
+    setCustomIcons((prev) => prev.filter((_, i) => i !== index));
+    setConfig((c) => {
+      const icons = { ...c.items };
+      for (let i = 1; i <= 5; i += 1) icons[`custom${i}`] = { ...(icons[`custom${i + 1}`] || OFF_ITEM) };
+      icons.custom5 = { ...OFF_ITEM };
+      return { ...c, items: icons };
+    });
+  };
+
+  const savePreset = () => {
+    const name = presetName.trim() || `方案 ${presets.length + 1}`;
+    const entry = { id: String(Date.now()), name, savedAt: new Date().toLocaleString("zh-CN", { hour12: false }).slice(0, 16), config: JSON.parse(JSON.stringify(config)) };
+    const next = [...presets, entry].slice(-12);
+    setPresets(next);
+    localStorage.setItem(PRESET_KEY, JSON.stringify(next));
+    setPresetName("");
+  };
+
+  const applyPreset = (p) => {
+    setConfig((c) => ({
+      ...DEFAULT_CONFIG,
+      ...p.config,
+      items: { ...DEFAULT_CONFIG.items, ...p.config.items },
+      notificationIcons: p.config.notificationIcons || c.notificationIcons,
+    }));
+  };
+
+  const deletePreset = (id) => {
+    const next = presets.filter((p) => p.id !== id);
+    setPresets(next);
+    localStorage.setItem(PRESET_KEY, JSON.stringify(next));
   };
 
   const canvasPoint = (event) => {
@@ -823,7 +1477,7 @@ export default function Home() {
   };
 
   const handleCanvasDown = (event) => {
-    if (!image || tab !== "top" || eraseMode === "off") return;
+    if (!image || section !== "erase" || eraseMode === "off") return;
     const point = canvasPoint(event);
     if (point.y > image.naturalHeight * config.topHeight / 100) return;
     event.preventDefault();
@@ -849,123 +1503,297 @@ export default function Home() {
   };
 
   const resetAll = () => {
-    setConfig(DEFAULT_CONFIG);
+    setConfig(JSON.parse(JSON.stringify(DEFAULT_CONFIG)));
     setEraseStrokes([]);
     setEraseMode("off");
-    setCustomNoticeImage(null);
+    setCustomIcons([]);
+  };
+
+  const item = (id) => getItem(config, id);
+  const wifiStyleName = WIFI_STYLES.find((s) => s[0] === config.wifiStyle)?.[1] || "WiFi 1";
+  const otherOn = ["headphone1", "vibrate1", "nfc1", "eyecare1", "alarm1", "bluetooth1"].filter((id) => item(id).on).length;
+
+  const simCard = (n) => {
+    const network = n === 1 ? config.sim1Network : config.sim2Network;
+    const bars = n === 1 ? config.sim1Bars : config.sim2Bars;
+    return (
+      <div className="sim-card">
+        <span className="sim-badge">SIM {n}</span>
+        <SelectField label="网络制式" value={network} options={NETWORK_OPTIONS} onChange={(v) => patch(n === 1 ? "sim1Network" : "sim2Network", v)} />
+        <Range label="信号强度" value={bars} min={0} max={4} onChange={(v) => patch(n === 1 ? "sim1Bars" : "sim2Bars", v)} />
+        <Toggle label={`SIM ${n} 显示 ? 问号`} checked={item(`sim${n}Question`).on} onChange={(v) => patchItem(`sim${n}Question`, { on: v })} />
+      </div>
+    );
   };
 
   return (
     <main className="app-shell">
       <header className="top-header">
-        <div className="brand-mark"><IconLogo size={24} /></div>
-        <div className="brand-copy"><h1>截图界面修改工具</h1><p>状态栏 · 底部导航栏 · 原图分辨率导出</p></div>
+        <div className="brand-mark"><IconLogo size={22} /></div>
+        <div className="brand-copy"><h1>截图界面修改工具</h1><p>消除原图 · 状态栏 · 底部导航栏</p></div>
         <div className="privacy-pill"><span /> 图片仅在当前浏览器处理</div>
       </header>
 
       <section className="workspace">
+        <nav className="rail">
+          <span className="rail-title">功能项目</span>
+          {SECTIONS.map(([id, label], i) => (
+            <button key={id} className={section === id ? "active" : ""} onClick={() => setSection(id)}>
+              <i>{String(i + 1).padStart(2, "0")}</i>{label}
+            </button>
+          ))}
+        </nav>
+
         <aside className="control-panel">
           <div className="upload-row">
-            <div><span className="eyebrow">当前截图</span><strong>{fileName || "尚未选择图片"}</strong><small>{sizeText}</small></div>
+            <div>
+              <span className="eyebrow">01 · 上传截图</span>
+              <strong>{fileName || "尚未选择图片"}</strong>
+              <small>原图自适应 · {image ? sizeText : "等待上传"}</small>
+            </div>
             <button className="secondary" onClick={() => fileRef.current?.click()}>{image ? "更换" : "上传"}</button>
             <input ref={fileRef} hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => openFile(e.target.files?.[0])} />
           </div>
 
-          <div className="tabs">
-            <button className={tab === "top" ? "active" : ""} onClick={() => setTab("top")}><i>01</i>顶部状态栏</button>
-            <button className={tab === "bottom" ? "active" : ""} onClick={() => setTab("bottom")}><i>02</i>底部导航栏</button>
+          <div className="device-row">
+            <span className="device-badge">02</span>
+            <div>
+              <strong>设备类型（可选）</strong>
+              <select value={config.deviceType} onChange={(e) => applyDevice(e.target.value)}>
+                {DEVICE_PRESETS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+              <em>保留原图尺寸、比例、边角和全部画面</em>
+            </div>
           </div>
 
           <div className="controls-scroll">
-            {tab === "top" ? <>
-              <div className="section-title"><span>区域与背景</span><em>TOP</em></div>
-              <Range label="覆盖高度" value={config.topHeight} min={3.5} max={12} step={0.1} suffix="%" onChange={(v) => patch("topHeight", v)} />
-              <SelectField label="背景处理" value={config.topStyle} options={[["dark","深色遮盖"],["light","浅色遮盖"],["blur","原图模糊"],["custom","自定义颜色"],["manual","保留原图，手动消除"]]} onChange={(v) => patch("topStyle", v)} />
-              {config.topStyle === "custom" && <label className="color-field"><span>背景颜色</span><input type="color" value={config.topColor} onChange={(e) => patch("topColor", e.target.value)} /></label>}
-              {config.topStyle !== "manual" && <Range label="背景强度" value={config.topOpacity} min={20} max={100} suffix="%" onChange={(v) => patch("topOpacity", v)} />}
+            {section === "upload" && <>
+              <SectionTitle em="IMAGE">上传原图</SectionTitle>
+              <button className="drop-card" onClick={() => fileRef.current?.click()}>
+                <span className="drop-icon"><IconUpload size={20} /></span>
+                <strong>选择截图文件</strong>
+                <small>保留原始像素尺寸与完整画面，仅在预览区等比例缩小显示</small>
+              </button>
+            </>}
 
-              <div className="section-title"><span>手动消除</span><em>ERASER</em></div>
+            {section === "device" && <>
+              <SectionTitle em="DEVICE">设备样式</SectionTitle>
+              <div className="device-grid">
+                {DEVICE_PRESETS.map(([v, l, d]) => (
+                  <button key={v} className={config.deviceType === v ? "selected" : ""} onClick={() => applyDevice(v)}>
+                    <strong>{l}</strong><small>{d}</small>
+                  </button>
+                ))}
+              </div>
+              <p className="note-line">选择设备样式会一次性套用该品牌的信号、WiFi、电池与底部导航组合，之后仍可在各分区单独调整。</p>
+            </>}
+
+            {section === "erase" && <>
+              <SectionTitle em="ERASER">原图消除工具</SectionTitle>
               <div className="erase-card">
                 <div className="tool-buttons">
                   <button disabled={!image} className={eraseMode === "brush" ? "active" : ""} onClick={() => setEraseMode("brush")}>消除笔</button>
-                  <button disabled={!image} className={eraseMode === "picker" ? "active" : ""} onClick={() => setEraseMode("picker")}>从图片取色</button>
+                  <button disabled={!image} className={eraseMode === "picker" ? "active" : ""} onClick={() => setEraseMode("picker")}>从原图取色</button>
                   <button className={eraseMode === "off" ? "active" : ""} onClick={() => setEraseMode("off")}>关闭</button>
                 </div>
-                <label className="color-field"><span>消除颜色</span><input type="color" value={config.eraseColor} onChange={(e) => patch("eraseColor", e.target.value)} /></label>
+                <Range label="可消除区域高度" value={config.topHeight} min={3.5} max={12} step={0.1} suffix="%" onChange={(v) => patch("topHeight", v)} />
+                <label className="color-field"><span>覆盖颜色</span><input type="color" value={config.eraseColor} onChange={(e) => patch("eraseColor", e.target.value)} /></label>
                 <Range label="笔刷大小" value={config.eraseSize} min={6} max={70} suffix="px" onChange={(v) => patch("eraseSize", v)} />
                 <div className="erase-actions">
                   <button disabled={!eraseStrokes.length} onClick={() => setEraseStrokes((s) => s.slice(0, -1))}>撤销上一笔</button>
-                  <button disabled={!eraseStrokes.length} onClick={() => setEraseStrokes([])}>清空消除</button>
+                  <button disabled={!eraseStrokes.length} onClick={() => setEraseStrokes([])}>清空全部</button>
                 </div>
-                {eraseMode !== "off" && <p>{eraseMode === "picker" ? "请点击截图顶部，吸取原图颜色" : "请在原图顶部按住并拖动，覆盖原有内容"}</p>}
+                <p>消除笔只处理原始截图，不会擦除后来添加的状态栏图标。</p>
               </div>
+            </>}
 
-              <div className="section-title"><span>时间</span><em>TIME</em></div>
+            {section === "topbg" && <>
+              <SectionTitle em="TOP">区域与背景</SectionTitle>
+              <Range label="覆盖高度" value={config.topHeight} min={3.5} max={12} step={0.1} suffix="%" onChange={(v) => patch("topHeight", v)} />
+              <SelectField label="背景处理" value={config.topStyle} options={[["dark", "深色遮盖"], ["light", "浅色遮盖"], ["blur", "原图模糊"], ["custom", "自定义颜色"], ["manual", "保留原图，手动消除"]]} onChange={(v) => patch("topStyle", v)} />
+              {config.topStyle === "custom" && <label className="color-field"><span>背景颜色</span><input type="color" value={config.topColor} onChange={(e) => patch("topColor", e.target.value)} /></label>}
+              {config.topStyle !== "manual" && <Range label="背景强度" value={config.topOpacity} min={20} max={100} suffix="%" onChange={(v) => patch("topOpacity", v)} />}
+            </>}
+
+            {section === "time" && <>
+              <SectionTitle em="TIME">时间</SectionTitle>
               <div className="field-pair">
                 <label className="field"><span>显示时间</span><input value={config.time} maxLength={8} onChange={(e) => patch("time", e.target.value)} /></label>
-                <SelectField label="时间位置" value={config.timePosition} options={[["left","左侧"],["center","居中"],["right","右侧"]]} onChange={(v) => patch("timePosition", v)} />
+                <SelectField label="时间位置" value={config.timePosition} options={[["left", "左侧"], ["center", "居中"], ["right", "右侧"]]} onChange={(v) => patch("timePosition", v)} />
               </div>
               {config.timePosition !== "center" && <Range label="边缘距离" value={config.timeX} min={2} max={25} suffix="%" onChange={(v) => patch("timeX", v)} />}
-
-              <div className="section-title"><span>状态图标</span><em>STATUS</em></div>
-              <Range label="图标大小" value={config.iconScale} min={60} max={160} step={5} suffix="%" onChange={(v) => patch("iconScale", v)} />
-              <SelectField label="系统图标颜色" value={config.iconColor} options={[["#ffffff","白色"],["#000000","黑色"]]} onChange={(v) => patch("iconColor", v)} />
-
-              <div className="section-title"><span>信号</span><em>SIGNAL</em></div>
+              <Range label="时间字体粗细" value={config.timeWeight} min={100} max={900} step={50} onChange={(v) => patch("timeWeight", v)} />
               <div className="field-pair">
-                <SelectField label="网络类型" value={config.network} options={["5G","4G","LTE","隐藏"]} onChange={(v) => patch("network", v)} />
-                <SideRow label="显示位置" value={config.signalSide} onChange={(v) => patch("signalSide", v)} />
+                <Range label="时间字体大小" value={config.timeSize} min={60} max={160} step={5} suffix="%" onChange={(v) => patch("timeSize", v)} />
+                <Range label="时间上下位置" value={config.timeOffsetY} min={-20} max={20} suffix="px" onChange={(v) => patch("timeOffsetY", v)} />
               </div>
-              <Range label="信号强度" value={config.signalBars} min={0} max={4} onChange={(v) => patch("signalBars", v)} />
+              <Range label="时间、后缀、运营商间距" value={config.timeGap} min={0} max={12} step={0.5} suffix="px" onChange={(v) => patch("timeGap", v)} />
+              <div className="field-pair">
+                <label className="field"><span>12 小时后缀（手动输入）</span><input value={config.timeSuffix} placeholder="例如 p.m. / PM" maxLength={6} onChange={(e) => patch("timeSuffix", e.target.value)} /></label>
+                <label className="field"><span>运营商名称</span><input value={config.carrier} placeholder="例如 China Mobile" maxLength={16} onChange={(e) => patch("carrier", e.target.value)} /></label>
+              </div>
+              <Toggle label="AM 时间后缀 · 自定义大小写" checked={config.showSuffix} onChange={(v) => patch("showSuffix", v)} />
+              <Toggle label="运营商 · 自定义名称" checked={config.showCarrier} onChange={(v) => patch("showCarrier", v)} />
+            </>}
 
-              <div className="section-title"><span>Wi-Fi</span><em>WIFI</em></div>
+            {section === "signal" && <>
+              <SectionTitle em="SIGNAL">信号</SectionTitle>
               <div className="field-pair">
-                <SelectField label="图标样式" value={config.wifiStyle} options={[[1,"Wifi 1 弧线"],[2,"Wifi 2 填充扇形"],[3,"Wifi 3 填充三角"],[4,"Wifi 4 安卓扇面"],[5,"Wifi 5 双色粗弧"]]} onChange={(v) => patch("wifiStyle", Number(v))} />
-                <SideRow label="显示位置" value={config.wifiSide} onChange={(v) => patch("wifiSide", v)} />
+                <SelectField label="系统图标区域" value={config.iconSide} options={[["left", "左侧"], ["right", "右侧"]]} onChange={(v) => setConfig((c) => {
+                  const items = { ...c.items };
+                  for (const [id, val] of Object.entries(items)) {
+                    if (["notices"].includes(id)) continue;
+                    items[id] = { ...val, side: v };
+                  }
+                  return { ...c, iconSide: v, items };
+                })} />
+                <Range label="整体基础大小" value={config.iconScale} min={60} max={160} step={5} suffix="%" onChange={(v) => patch("iconScale", v)} />
               </div>
-              <div className="toggle-grid">
-                <Toggle label="显示 Wi-Fi" checked={config.wifi} onChange={(v) => patch("wifi", v)} />
+              <SelectField label="系统图标颜色" value={config.iconColor} options={[["#ffffff", "白色"], ["#000000", "黑色"]]} onChange={(v) => patch("iconColor", v)} />
+              <div className="field-pair">
+                <SelectField label="SIM 卡数量" value={config.simCount} options={[[1, "单卡"], [2, "双卡"]]} onChange={(v) => patch("simCount", Number(v))} />
+                <SelectField label="信号图形" value={config.signalShape} options={SIGNAL_SHAPES} onChange={(v) => patch("signalShape", Number(v))} />
               </div>
-              {config.wifi && <Range label="Wi-Fi 强度" value={config.wifiStrength} min={0} max={3} onChange={(v) => patch("wifiStrength", v)} />}
+              <SelectField label="Wi-Fi / SIM 排列" value={config.wifiSimOrder} options={[["wifiFirst", "Wi-Fi 在 SIM 前"], ["simFirst", "Wi-Fi 在 SIM 后"]]} onChange={(v) => patch("wifiSimOrder", v)} />
+              <Range label="信号元素间距" value={config.signalBarGap} min={1} max={6} step={0.1} suffix="px" onChange={(v) => patch("signalBarGap", v)} />
+              <div className="field-pair">
+                <Range label="信号线条间距" value={config.signalLineGap} min={0.5} max={4} step={0.1} suffix="px" onChange={(v) => patch("signalLineGap", v)} />
+                <Range label="信号线条粗细" value={config.signalLineWidth} min={1.5} max={6} step={0.1} suffix="px" onChange={(v) => patch("signalLineWidth", v)} />
+              </div>
+              <SelectField label="信号线条端点" value={config.signalCap} options={[["round", "圆角"], ["square", "直角"]]} onChange={(v) => patch("signalCap", v)} />
+              <p className="note-line">三角形信号保持整体形状，不使用线条间距、粗细和圆角设置。</p>
+              {simCard(1)}
+              {config.simCount === 2 && simCard(2)}
+              <div className="field-pair">
+                <SelectField label="通话标志" value={config.callMark} options={[["none", "不显示"], ["VoLTE", "VoLTE"], ["HD", "HD"], ["Vo", "Vo"]]} onChange={(v) => patch("callMark", v)} />
+                <label className="field"><span>网速 1 · 自定义文字</span><input value={config.speed1Text} placeholder="如 82.0 KB/S" maxLength={14} onChange={(e) => patch("speed1Text", e.target.value)} /></label>
+              </div>
+              <div className="field-pair">
+                <label className="field"><span>网速 2 · 第一行</span><input value={config.speed2Line1} maxLength={10} onChange={(e) => patch("speed2Line1", e.target.value)} /></label>
+                <label className="field"><span>网速 2 · 第二行</span><input value={config.speed2Line2} maxLength={10} onChange={(e) => patch("speed2Line2", e.target.value)} /></label>
+              </div>
+              <Toggle label="SIM 1 / 2 编号" checked={config.showSimNumber} onChange={(v) => patch("showSimNumber", v)} />
+              <div className="item-list">
+                <ItemCard badge={config.sim1Network === "隐藏" ? "5G" : config.sim1Network} title="SIM 1 · 网络制式" item={item("sim1Type")} onPatch={(p) => patchItem("sim1Type", p)} onReset={() => resetItem("sim1Type")} />
+                <ItemCard badge="⇅" title="SIM 1 · 上下行箭头" item={item("sim1Arrow")} onPatch={(p) => patchItem("sim1Arrow", p)} onReset={() => resetItem("sim1Arrow")} />
+                <ItemCard badge="▮" title="SIM 1 · 信号图形" item={item("sim1Bars")} onPatch={(p) => patchItem("sim1Bars", p)} onReset={() => resetItem("sim1Bars")} />
+                <ItemCard badge="?" title="SIM 1 · 问号" item={item("sim1Question")} onPatch={(p) => patchItem("sim1Question", p)} onReset={() => resetItem("sim1Question")} />
+                {config.simCount === 2 && <>
+                  <ItemCard badge={config.sim2Network === "隐藏" ? "4G" : config.sim2Network} title="SIM 2 · 网络制式" item={item("sim2Type")} onPatch={(p) => patchItem("sim2Type", p)} onReset={() => resetItem("sim2Type")} />
+                  <ItemCard badge="⇅" title="SIM 2 · 上下行箭头" item={item("sim2Arrow")} onPatch={(p) => patchItem("sim2Arrow", p)} onReset={() => resetItem("sim2Arrow")} />
+                  <ItemCard badge="▮" title="SIM 2 · 信号图形" item={item("sim2Bars")} onPatch={(p) => patchItem("sim2Bars", p)} onReset={() => resetItem("sim2Bars")} />
+                  <ItemCard badge="?" title="SIM 2 · 问号" item={item("sim2Question")} onPatch={(p) => patchItem("sim2Question", p)} onReset={() => resetItem("sim2Question")} />
+                </>}
+                <ItemCard badge="K/s" title="网速 1 · 自定义文字" item={item("speed1")} onPatch={(p) => patchItem("speed1", p)} onReset={() => resetItem("speed1")} />
+                <ItemCard badge="HD" title="网络标志 1 · VoLTE / HD" item={item("mark1")} onPatch={(p) => patchItem("mark1", p)} onReset={() => resetItem("mark1")} />
+                <ItemCard badge="KB/s" title={`网速 2 · ${config.speed2Line1 || "4.81"} ${config.speed2Line2 || "KB/s"} 双行`} item={item("speed2")} onPatch={(p) => patchItem("speed2", p)} onReset={() => resetItem("speed2")} />
+                <ItemCard badge="▮" title="信号 6 · 四格直柱" item={item("signal6")} onPatch={(p) => patchItem("signal6", p)} onReset={() => resetItem("signal6")} />
+                <ItemCard badge="▨" title="信号 7 · 五格斜坡" item={item("signal7")} onPatch={(p) => patchItem("signal7", p)} onReset={() => resetItem("signal7")} />
+                <ItemCard badge="Vo" title="网络标志 2 · Vo / LTE 叠放" item={item("mark2")} onPatch={(p) => patchItem("mark2", p)} onReset={() => resetItem("mark2")} />
+                <ItemCard badge="5G" title="网络标志 3 · 5G 文字" item={item("mark3")} onPatch={(p) => patchItem("mark3", p)} onReset={() => resetItem("mark3")} />
+                <ItemCard badge="◺" title="信号 8 · 参考圆三角形" item={item("signal8")} onPatch={(p) => patchItem("signal8", p)} onReset={() => resetItem("signal8")} />
+                <ItemCard badge="4G" title="网络标志 4 · 4G 文字" item={item("mark4")} onPatch={(p) => patchItem("mark4", p)} onReset={() => resetItem("mark4")} />
+              </div>
+            </>}
 
-              <div className="section-title"><span>电池</span><em>BATTERY</em></div>
-              <div className="field-pair">
-                <SelectField label="图标样式" value={config.batteryStyle} options={[[1,"电池 1 描边"],[2,"电池 2 灰边框"],[3,"电池 3 填充"],[4,"电池 4 数字填充"]]} onChange={(v) => patch("batteryStyle", Number(v))} />
-                <SideRow label="显示位置" value={config.batterySide} onChange={(v) => patch("batterySide", v)} />
+            {section === "wifi" && <>
+              <SectionTitle em="WI-FI">WiFi</SectionTitle>
+              <SelectField label="WiFi 样式" value={config.wifiStyle} options={WIFI_STYLES} onChange={(v) => patch("wifiStyle", Number(v))} />
+              <Range label="WiFi 信号强度（3 级）" value={config.wifiStrength} min={0} max={3} onChange={(v) => patch("wifiStrength", v)} />
+              <Range label="WiFi 元素间距" value={config.wifiGap} min={1} max={6} step={0.1} suffix="px" onChange={(v) => patch("wifiGap", v)} />
+              <div className="item-list">
+                <ItemCard badge="◜" title={`WiFi · ${wifiStyleName}`} item={item("wifi")} onPatch={(p) => patchItem("wifi", p)} onReset={() => resetItem("wifi")} />
+                <ItemCard badge="⇅" title="WiFi 箭头 1 · 独立上下行" item={item("wifiArrow1")} onPatch={(p) => patchItem("wifiArrow1", p)} onReset={() => resetItem("wifiArrow1")} />
               </div>
-              <div className="field-pair">
-                <SelectField label="填充颜色" value={config.batteryFill} options={[["auto","跟随图标"],["green","绿色"]]} onChange={(v) => patch("batteryFill", v)} />
+            </>}
+
+            {section === "battery" && <>
+              <SectionTitle em="BATTERY">电池</SectionTitle>
+              <span className="field-label">电池类型与形状</span>
+              <div className="battery-grid">
+                {BATTERY_TYPES.map(([v, l, d]) => (
+                  <button key={v} className={config.batteryType === v ? "selected" : ""} onClick={() => patch("batteryType", v)}>
+                    <BatteryPreview type={v} />
+                    <span><strong>{l}</strong><small>{d}</small></span>
+                  </button>
+                ))}
               </div>
+              <p className="note-line">电池 11-16 是你提供的固定参考款，可在本页下方独立打开和混排。</p>
               <Range label="剩余电量" value={config.battery} min={1} max={100} suffix="%" onChange={(v) => patch("battery", v)} />
+              <Range label="电池元素间距" value={config.batteryGap} min={1} max={6} step={0.1} suffix="px" onChange={(v) => patch("batteryGap", v)} />
               <div className="toggle-grid">
-                <Toggle label="电池内数字" checked={config.batteryNumber} onChange={(v) => patch("batteryNumber", v)} />
-                <Toggle label="充电闪电" checked={config.batteryCharging} onChange={(v) => patch("batteryCharging", v)} />
+                <Toggle label="显示电量数字" checked={config.batteryNumber} onChange={(v) => patch("batteryNumber", v)} />
+                <Toggle label="显示充电标志" checked={config.batteryCharging} onChange={(v) => patch("batteryCharging", v)} />
               </div>
+              <SelectField label="电量数字排列" value={config.batteryNumberLayout} options={[["right", "电池在左，数字在右"], ["left", "数字在左，电池在右"], ["inside", "数字在电池内部"]]} onChange={(v) => patch("batteryNumberLayout", v)} />
+              <SelectField label="电池内部颜色" value={config.batteryInnerColor} options={[["auto", "自动（低电量红色 / 中低电量黄色）"], ["green", "绿色"], ["icon", "跟随图标颜色"]]} onChange={(v) => patch("batteryInnerColor", v)} />
+              <div className="item-list">
+                <ItemCard badge="电" title={`电池 · 电池 ${config.batteryType}`} item={item("battery")} onPatch={(p) => patchItem("battery", p)} onReset={() => resetItem("battery")} />
+                <ItemCard badge="叶" title="省电 1 · 叶片" item={item("powersave")} onPatch={(p) => patchItem("powersave", p)} onReset={() => resetItem("powersave")} />
+                <ItemCard badge="51" title="电池 11 · 绿色 51 框内" item={item("batt11")} onPatch={(p) => patchItem("batt11", p)} onReset={() => resetItem("batt11")} />
+                <ItemCard badge="30" title="电池 12 · 绿色 30 框内" item={item("batt12")} onPatch={(p) => patchItem("batt12", p)} onReset={() => resetItem("batt12")} />
+                <ItemCard badge="闪" title="充电标志 1 · 外置闪电" item={item("chargeMark1")} onPatch={(p) => patchItem("chargeMark1", p)} onReset={() => resetItem("chargeMark1")} />
+                <ItemCard badge="低" title="电池 13 · 红色低电量" item={item("batt13")} onPatch={(p) => patchItem("batt13", p)} onReset={() => resetItem("batt13")} />
+                <ItemCard badge="75" title="电池 14 · 数字 75 胶囊" item={item("batt14")} onPatch={(p) => patchItem("batt14", p)} onReset={() => resetItem("batt14")} />
+                <ItemCard badge="竖" title="电池 15 · 竖向实心" item={item("batt15")} onPatch={(p) => patchItem("batt15", p)} onReset={() => resetItem("batt15")} />
+                <ItemCard badge="充" title="电池 16 · 竖向充电" item={item("batt16")} onPatch={(p) => patchItem("batt16", p)} onReset={() => resetItem("batt16")} />
+              </div>
+            </>}
 
-              <div className="section-title"><span>通知图标</span><em>最多 5 个</em></div>
-              <SideRow label="显示位置" value={config.noticeSide} onChange={(v) => patch("noticeSide", v)} />
-              <div className="notice-grid">
-                {NOTICE_OPTIONS.map(([value, label]) => {
-                  const Glyph = NOTICE_ICONS[value];
-                  return <button key={value} className={config.notificationIcons.includes(value) ? "selected" : ""} onClick={() => toggleNotice(value)}><span><Glyph size={13} /></span>{label}</button>;
-                })}
-                <button className={config.notificationIcons.includes("custom") ? "selected" : ""} onClick={() => customNoticeImage ? toggleNotice("custom") : customIconRef.current?.click()}><span><IconCustomAdd size={13} /></span>{customNoticeImage ? "自定义" : "上传图标"}</button>
+            {section === "other" && <>
+              <SectionTitle em="OTHER">其他系统图标</SectionTitle>
+              <p className="note-line">这里只保留不属于时间、信号、WiFi 和电池的图标。关闭时仅显示名称与开关。</p>
+              <Range label="其他图标默认间距" value={config.otherGap} min={1} max={6} step={0.1} suffix="px" onChange={(v) => patch("otherGap", v)} />
+              <div className="item-list">
+                <ItemCard badge="耳" title="耳机 1 · 标准" item={item("headphone1")} onPatch={(p) => patchItem("headphone1", p)} onReset={() => resetItem("headphone1")} />
+                <ItemCard badge="振" title="振动 1 · 标准" item={item("vibrate1")} onPatch={(p) => patchItem("vibrate1", p)} onReset={() => resetItem("vibrate1")} />
+                <ItemCard badge="N" title="NFC 1 · 标准" item={item("nfc1")} onPatch={(p) => patchItem("nfc1", p)} onReset={() => resetItem("nfc1")} />
+                <ItemCard badge="眼" title="护眼 1 · 参考截图" item={item("eyecare1")} onPatch={(p) => patchItem("eyecare1", p)} onReset={() => resetItem("eyecare1")} />
+                <ItemCard badge="钟" title="闹钟 1 · 标准" item={item("alarm1")} onPatch={(p) => patchItem("alarm1", p)} onReset={() => resetItem("alarm1")} />
+                <ItemCard badge="蓝" title="蓝牙 1 · 标准" item={item("bluetooth1")} onPatch={(p) => patchItem("bluetooth1", p)} onReset={() => resetItem("bluetooth1")} />
               </div>
-              {customNoticeImage && <button className="upload-custom" onClick={() => customIconRef.current?.click()}>更换自定义图标</button>}
-              <input ref={customIconRef} hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => loadCustomNotice(e.target.files?.[0])} />
-            </> : <>
-              <div className="section-title"><span>导航栏样式</span><em>BOTTOM</em></div>
+            </>}
+
+            {section === "custom" && <>
+              <SectionTitle em="最多 5 个">自定义通知图标</SectionTitle>
+              <div className="item-list">
+                {customIcons.map((ci, i) => (
+                  <ItemCard key={ci.id} badge={<img src={ci.img.src} alt="" />} title={`自定义 ${i + 1} · ${ci.name}`} item={item(`custom${i + 1}`)} onPatch={(p) => patchItem(`custom${i + 1}`, p)} onReset={() => resetItem(`custom${i + 1}`)}>
+                    <button className="upload-custom" onClick={() => removeCustomIcon(i)}>移除该图标</button>
+                  </ItemCard>
+                ))}
+              </div>
+              {customIcons.length < 5 && (
+                <button className="add-custom" onClick={() => customIconRef.current?.click()}>+ 添加自定义图标</button>
+              )}
+              <input ref={customIconRef} hidden type="file" multiple accept="image/png,image/jpeg,image/webp" onChange={(e) => { addCustomIcons(e.target.files); e.target.value = ""; }} />
+              <p className="note-line">支持一次选择多张图片。每个自定义图标都可以单独开关、调整大小和位置。</p>
+              <SectionTitle em="内置">通知图标</SectionTitle>
+              <ItemCard badge="✉" title="通知图标 · 内置品牌" item={item("notices")} onPatch={(p) => patchItem("notices", p)} onReset={() => resetItem("notices")}>
+                <div className="notice-grid">
+                  {NOTICE_OPTIONS.map(([value, label]) => {
+                    const Glyph = NOTICE_ICONS[value];
+                    return <button key={value} className={config.notificationIcons.includes(value) ? "selected" : ""} onClick={() => toggleNotice(value)}><span><Glyph size={13} /></span>{label}</button>;
+                  })}
+                </div>
+              </ItemCard>
+            </>}
+
+            {section === "bottom" && <>
+              <SectionTitle em="BOTTOM">导航栏样式</SectionTitle>
               <div className="style-grid">
-                {[["gesture","手势横条"],["android","安卓三键"],["vivo","vivo OriginOS"],["xiaomi","小米 HyperOS"],["huawei","华为 HarmonyOS"],["dock","图标 Dock"],["minimal","简洁图标"]].map(([v,l]) => <button key={v} className={config.bottomStyle === v ? "selected" : ""} onClick={() => setBottomPreset(v)}><NavPreview variant={v} />{l}</button>)}
+                {[["gesture", "手势粗条"], ["gestureThin", "手势细线"], ["threeLeft", "三键 · 返回左"], ["threeRight", "三键 · 返回右"], ["samsung", "Samsung 三键"], ["vivo", "vivo OriginOS"], ["xiaomi", "小米 HyperOS"], ["huawei", "华为 HarmonyOS"], ["dock", "图标 Dock"], ["minimal", "简洁图标"]].map(([v, l]) => (
+                  <button key={v} className={config.bottomStyle === v ? "selected" : ""} onClick={() => setBottomPreset(v)}><NavPreview variant={v} />{l}</button>
+                ))}
               </div>
               <Range label="覆盖高度" value={config.bottomHeight} min={3} max={20} step={0.1} suffix="%" onChange={(v) => patch("bottomHeight", v)} />
-              <SelectField label="背景处理" value={config.bottomCover} options={[["dark","深色遮盖"],["light","浅色遮盖"],["blur","原图模糊"],["custom","自定义颜色"]]} onChange={(v) => patch("bottomCover", v)} />
+              <Range label="导航图标大小" value={config.navIconScale} min={60} max={160} step={5} suffix="%" onChange={(v) => patch("navIconScale", v)} />
+              <SelectField label="背景处理" value={config.bottomCover} options={[["dark", "深色遮盖"], ["light", "浅色遮盖"], ["blur", "原图模糊"], ["custom", "自定义颜色"]]} onChange={(v) => patch("bottomCover", v)} />
               {config.bottomCover === "custom" && <label className="color-field"><span>背景颜色</span><input type="color" value={config.bottomColor} onChange={(e) => patch("bottomColor", e.target.value)} /></label>}
               <Range label="背景强度" value={config.bottomOpacity} min={20} max={100} suffix="%" onChange={(v) => patch("bottomOpacity", v)} />
               <label className="color-field"><span>图标颜色</span><input type="color" value={config.bottomIconColor} onChange={(e) => patch("bottomIconColor", e.target.value)} /></label>
-
               {(config.bottomStyle === "dock" || config.bottomStyle === "minimal") && <>
-                <div className="section-title"><span>图标设置</span><em>ICONS</em></div>
+                <SectionTitle em="ICONS">图标设置</SectionTitle>
                 <Range label="图标数量" value={config.navCount} min={3} max={5} onChange={(v) => patch("navCount", v)} />
                 <div className="icon-selects">
                   {Array.from({ length: config.navCount }).map((_, i) => (
@@ -982,6 +1810,27 @@ export default function Home() {
                 </div>
               </>}
             </>}
+
+            {section === "presets" && <>
+              <SectionTitle em="最多 12 个">保存与应用方案</SectionTitle>
+              <div className="preset-card">
+                <label className="field"><span>方案名称</span><input value={presetName} placeholder="例如：双卡白色状态栏" maxLength={20} onChange={(e) => setPresetName(e.target.value)} /></label>
+                <button className="primary preset-save" onClick={savePreset}>保存当前方案</button>
+                <p>保存设备类型、状态栏、系统图标、自定义图标和底部导航。图片与消除笔痕迹不会写入方案。</p>
+              </div>
+              <div className="preset-list">
+                {presets.length === 0 && <p className="note-line">还没有保存的方案。调整好参数后在这里命名保存，下次一键套用。</p>}
+                {presets.map((p) => (
+                  <div className="preset-row" key={p.id}>
+                    <div><strong>{p.name}</strong><small>{p.savedAt}</small></div>
+                    <div className="preset-actions">
+                      <button className="secondary" onClick={() => applyPreset(p)}>应用方案</button>
+                      <button className="danger" onClick={() => deletePreset(p.id)}>删除</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>}
           </div>
 
           <div className="panel-actions">
@@ -993,21 +1842,21 @@ export default function Home() {
 
         <section className="preview-panel">
           <div className="preview-toolbar">
-            <div><span className="status-dot" />实时预览 <small>{sizeText}</small></div>
+            <div><span className="status-dot" />实时预览 <small>原图自适应 · {image ? sizeText : "等待上传"}</small></div>
             <button disabled={!image} onPointerDown={() => setOriginalOnly(true)} onPointerUp={() => setOriginalOnly(false)} onPointerLeave={() => setOriginalOnly(false)}>按住查看原图</button>
           </div>
-          <div className={`canvas-stage ${dragging ? "dragging" : ""}`} onDragOver={(e) => {e.preventDefault(); setDragging(true)}} onDragLeave={() => setDragging(false)} onDrop={(e) => {e.preventDefault(); setDragging(false); openFile(e.dataTransfer.files?.[0])}}>
+          <div className={`canvas-stage ${dragging ? "dragging" : ""}`} onDragOver={(e) => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(e) => { e.preventDefault(); setDragging(false); openFile(e.dataTransfer.files?.[0]); }}>
             {!image && <button className="drop-zone" onClick={() => fileRef.current?.click()}>
               <span className="upload-icon"><IconUpload size={26} /></span>
-              <strong>上传一张手机截图</strong>
+              <strong>上传手机截图</strong>
               <small>点击选择，或将 PNG / JPG 拖到这里</small>
-              <em>图片不会上传到服务器</em>
+              <em>保持原图尺寸与完整内容 · 图片不会上传到服务器</em>
             </button>}
             <div className={`canvas-wrap ${image ? "visible" : ""}`}>
-              <canvas ref={canvasRef} className={eraseMode !== "off" && tab === "top" ? "editing" : ""} onPointerDown={handleCanvasDown} onPointerMove={handleCanvasMove} onPointerUp={handleCanvasUp} onPointerCancel={handleCanvasUp} />
+              <canvas ref={canvasRef} className={eraseMode !== "off" && section === "erase" ? "editing" : ""} onPointerDown={handleCanvasDown} onPointerMove={handleCanvasMove} onPointerUp={handleCanvasUp} onPointerCancel={handleCanvasUp} />
               {image && !originalOnly && <>
-                <div className={`guide top ${tab === "top" ? "active" : ""}`} style={{height: `${config.topHeight}%`}}><span>顶部编辑区</span></div>
-                <div className={`guide bottom ${tab === "bottom" ? "active" : ""}`} style={{height: `${config.bottomHeight}%`}}><span>底部编辑区</span></div>
+                <div className={`guide top ${!["bottom", "upload", "device", "presets"].includes(section) ? "active" : ""}`} style={{ height: `${config.topHeight}%` }}><span>顶部编辑区</span></div>
+                <div className={`guide bottom ${section === "bottom" ? "active" : ""}`} style={{ height: `${config.bottomHeight}%` }}><span>底部编辑区</span></div>
               </>}
             </div>
           </div>
