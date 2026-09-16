@@ -84,6 +84,12 @@ input[type="range"]:active::-moz-range-thumb { transform: scale(1.2); }
 .toggle-row input:after { content: ""; position: absolute; width: 13px; height: 13px; left: 2px; top: 2px; background: white; border-radius: 50%; box-shadow: 0 1px 3px rgba(0, 0, 0, .22); transition: .22s cubic-bezier(.34, 1.56, .64, 1); }
 .toggle-row input:checked { background: var(--accent); }
 .toggle-row input:checked:after { transform: translateX(13px); }
+.side-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; padding: 0 10px; height: 38px; background: rgba(255, 255, 255, .5); border: 1px solid rgba(255, 255, 255, .75); border-radius: 10px; }
+.side-row > span { font-size: 11px; color: #697572; }
+.side-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 3px; border-radius: 8px; background: rgba(22, 52, 44, .07); }
+.side-toggle button { min-width: 34px; height: 24px; border-radius: 6px; background: transparent; color: #697572; font-size: 11px; font-weight: 700; transition: all .16s ease; }
+.side-toggle button.active { background: var(--grad); color: #fff; box-shadow: 0 2px 8px rgba(14, 114, 93, .3); }
+.field-pair .side-row { margin-top: 0; align-self: end; height: 38px; }
 .color-field { grid-template-columns: 1fr auto; align-items: center; padding: 8px 10px; background: rgba(255, 255, 255, .5); border: 1px solid rgba(255, 255, 255, .75); border-radius: 10px; }
 .color-field input { width: 31px; height: 24px; padding: 0; border: 0; background: none; cursor: pointer; }
 

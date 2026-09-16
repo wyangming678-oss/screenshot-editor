@@ -10,16 +10,23 @@ const DEFAULT_CONFIG = {
   topOpacity: 72,
   iconColor: "#ffffff",
   iconScale: 100,
-  iconPosition: "right",
   time: "16:01",
   timePosition: "left",
   timeX: 7,
   network: "5G",
   signalBars: 4,
+  signalSide: "right",
   wifi: true,
   wifiStrength: 3,
+  wifiStyle: 1,
+  wifiSide: "right",
   battery: 87,
   batteryNumber: false,
+  batteryStyle: 1,
+  batterySide: "right",
+  batteryCharging: false,
+  batteryFill: "auto",
+  noticeSide: "left",
   notificationIcons: ["plane"],
   eraseColor: "#111317",
   eraseSize: 24,
@@ -273,43 +280,155 @@ function drawNetworkType(ctx, type, x, cy, scale, color) {
   ctx.restore();
 }
 
-function drawWifi(ctx, x, cy, scale, color, strength) {
-  ctx.strokeStyle = color;
-  ctx.lineCap = "round";
-  ctx.lineWidth = 1.55 * scale;
-  [[7, 3], [4.8, 2], [2.4, 1]].forEach(([r, level]) => {
-    ctx.globalAlpha = strength >= level ? 1 : 0.22;
-    ctx.beginPath();
-    ctx.arc(x, cy + 3.4 * scale, r * scale, Math.PI * 1.22, Math.PI * 1.78);
-    ctx.stroke();
-  });
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = color;
-  ctx.globalAlpha = strength > 0 ? 1 : 0.22;
+function wifiSectorPath(ctx, cx, cy, r) {
   ctx.beginPath();
-  ctx.arc(x, cy + 5 * scale, 1.25 * scale, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.globalAlpha = 1;
+  ctx.moveTo(cx, cy);
+  ctx.arc(cx, cy, r, Math.PI * 1.25, Math.PI * 1.75);
+  ctx.closePath();
 }
 
-function drawBattery(ctx, x, cy, scale, value, color, showNumber) {
+function drawWifi(ctx, x, cy, scale, color, strength, style) {
+  const s = scale;
+  const cx = x + 7.5 * s;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineCap = "round";
+  if (style === 2) {
+    const apexY = cy + 5.5 * s;
+    ctx.globalAlpha = 0.25;
+    wifiSectorPath(ctx, cx, apexY, 8 * s);
+    ctx.fill();
+    ctx.globalAlpha = strength > 0 ? 1 : 0.25;
+    const frac = [0, 0.42, 0.72, 1][Math.max(0, Math.min(3, strength))];
+    if (frac > 0) {
+      wifiSectorPath(ctx, cx, apexY, 8 * s * frac);
+      ctx.fill();
+    }
+  } else if (style === 3) {
+    ctx.globalAlpha = strength > 0 ? 1 : 0.25;
+    ctx.beginPath();
+    ctx.moveTo(cx - 7 * s, cy - 4.5 * s);
+    ctx.lineTo(cx + 7 * s, cy - 4.5 * s);
+    ctx.lineTo(cx, cy + 5.5 * s);
+    ctx.closePath();
+    ctx.fill();
+  } else if (style === 4) {
+    ctx.globalAlpha = strength > 0 ? 1 : 0.25;
+    wifiSectorPath(ctx, cx, cy + 5.5 * s, 8 * s);
+    ctx.moveTo(cx + 2.2 * s, cy + 5.5 * s);
+    ctx.arc(cx, cy + 5.5 * s, 2.2 * s, 0, Math.PI * 2);
+    ctx.fill("evenodd");
+  } else if (style === 5) {
+    const dim = "#c4c8cb";
+    ctx.lineWidth = 2.6 * s;
+    [[7, 3], [4.6, 2]].forEach(([r, level]) => {
+      ctx.strokeStyle = strength >= level ? color : dim;
+      ctx.beginPath();
+      ctx.arc(cx, cy + 3.6 * s, r * s, Math.PI * 1.22, Math.PI * 1.78);
+      ctx.stroke();
+    });
+    ctx.fillStyle = strength > 0 ? color : dim;
+    ctx.beginPath();
+    ctx.arc(cx, cy + 5.2 * s, 1.6 * s, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    ctx.lineWidth = 1.55 * s;
+    [[7, 3], [4.8, 2], [2.4, 1]].forEach(([r, level]) => {
+      ctx.globalAlpha = strength >= level ? 1 : 0.22;
+      ctx.beginPath();
+      ctx.arc(cx, cy + 3.4 * s, r * s, Math.PI * 1.22, Math.PI * 1.78);
+      ctx.stroke();
+    });
+    ctx.globalAlpha = strength > 0 ? 1 : 0.22;
+    ctx.beginPath();
+    ctx.arc(cx, cy + 5 * s, 1.25 * s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawBolt(ctx, cx, cy, s, boltColor) {
+  ctx.save();
+  ctx.fillStyle = boltColor;
+  ctx.beginPath();
+  ctx.moveTo(cx + 1.8 * s, cy - 6.2 * s);
+  ctx.lineTo(cx - 2.8 * s, cy + 0.9 * s);
+  ctx.lineTo(cx - 0.5 * s, cy + 0.9 * s);
+  ctx.lineTo(cx - 1.8 * s, cy + 6.2 * s);
+  ctx.lineTo(cx + 2.8 * s, cy - 0.9 * s);
+  ctx.lineTo(cx + 0.5 * s, cy - 0.9 * s);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawBattery(ctx, x, cy, scale, value, color, showNumber, style, charging, fillColor) {
   const w = 22 * scale;
   const h = 10.5 * scale;
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 1.1 * scale;
-  ctx.globalAlpha = 0.55;
-  roundedRect(ctx, x, cy - h / 2, w, h, 3.2 * scale);
-  ctx.stroke();
-  ctx.fillStyle = color;
-  roundedRect(ctx, x + w + 1.3 * scale, cy - 2.2 * scale, 1.7 * scale, 4.4 * scale, 0.85 * scale);
-  ctx.fill();
-  ctx.globalAlpha = 1;
-  const inner = Math.max(1.5, (w - 3.2 * scale) * Math.max(0, Math.min(100, value)) / 100);
-  ctx.fillStyle = value <= 20 ? "#ff4d58" : color;
-  roundedRect(ctx, x + 1.6 * scale, cy - h / 2 + 1.6 * scale, inner, h - 3.2 * scale, 1.35 * scale);
-  ctx.fill();
-  if (showNumber) {
-    ctx.fillStyle = value > 45 ? (color === "#ffffff" ? "#111318" : "#ffffff") : color;
+  const green = "#34c759";
+  const gray = "#c4c8cb";
+  const clamped = Math.max(0, Math.min(100, value));
+  const chargeColor = clamped <= 20 && !charging ? "#ff4d58" : (charging || fillColor === "green" ? green : color);
+  const inner = Math.max(1.5, (w - 3.2 * scale) * clamped / 100);
+  if (style === 2) {
+    ctx.strokeStyle = "#d3d3d3";
+    ctx.lineWidth = 1.1 * scale;
+    roundedRect(ctx, x, cy - h / 2, w, h, 3.2 * scale);
+    ctx.stroke();
+    ctx.fillStyle = "#d3d3d3";
+    roundedRect(ctx, x + w + 1.3 * scale, cy - 2.2 * scale, 1.7 * scale, 4.4 * scale, 0.85 * scale);
+    ctx.fill();
+    ctx.fillStyle = chargeColor;
+    roundedRect(ctx, x + 1.6 * scale, cy - h / 2 + 1.6 * scale, inner, h - 3.2 * scale, 1.35 * scale);
+    ctx.fill();
+  } else if (style === 3) {
+    ctx.globalAlpha = 0.32;
+    ctx.fillStyle = color;
+    roundedRect(ctx, x, cy - h / 2, w, h, 3.2 * scale);
+    ctx.fill();
+    roundedRect(ctx, x + w + 1.3 * scale, cy - 2.2 * scale, 1.7 * scale, 4.4 * scale, 0.85 * scale);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = chargeColor;
+    roundedRect(ctx, x + 1.2 * scale, cy - h / 2 + 1.2 * scale, inner + 0.8 * scale, h - 2.4 * scale, 2 * scale);
+    ctx.fill();
+  } else if (style === 4) {
+    const chargeW = Math.max(2 * scale, w * clamped / 100);
+    ctx.fillStyle = gray;
+    roundedRect(ctx, x, cy - h / 2, w, h, 3.2 * scale);
+    ctx.fill();
+    roundedRect(ctx, x + w + 1.3 * scale, cy - 2.2 * scale, 1.7 * scale, 4.4 * scale, 0.85 * scale);
+    ctx.fill();
+    ctx.save();
+    roundedRect(ctx, x, cy - h / 2, w, h, 3.2 * scale);
+    ctx.clip();
+    ctx.fillStyle = chargeColor;
+    ctx.fillRect(x, cy - h / 2, chargeW, h);
+    ctx.restore();
+    ctx.fillStyle = chargeColor === "#ffffff" ? "#111318" : "#ffffff";
+    ctx.font = `700 ${7.4 * scale}px system-ui, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(Math.round(clamped)), x + Math.max(chargeW / 2, 7 * scale), cy + 0.4 * scale);
+    return;
+  } else {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.1 * scale;
+    ctx.globalAlpha = 0.55;
+    roundedRect(ctx, x, cy - h / 2, w, h, 3.2 * scale);
+    ctx.stroke();
+    ctx.fillStyle = color;
+    roundedRect(ctx, x + w + 1.3 * scale, cy - 2.2 * scale, 1.7 * scale, 4.4 * scale, 0.85 * scale);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = chargeColor;
+    roundedRect(ctx, x + 1.6 * scale, cy - h / 2 + 1.6 * scale, inner, h - 3.2 * scale, 1.35 * scale);
+    ctx.fill();
+  }
+  if (charging) drawBolt(ctx, x + w / 2, cy, scale, chargeColor === "#ffffff" ? "#111318" : (chargeColor === green ? "#111318" : "#ffffff"));
+  if (showNumber && !charging) {
+    ctx.fillStyle = clamped > 45 ? (color === "#ffffff" ? "#111318" : "#ffffff") : color;
     ctx.font = `600 ${6.7 * scale}px system-ui, sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -347,59 +466,73 @@ function drawEraseStrokes(ctx, strokes, w, h, c) {
   ctx.restore();
 }
 
+function itemSide(c, key) {
+  if (key === "notices") return c.noticeSide || "left";
+  return c[`${key}Side`] || "right";
+}
+
 function drawTop(ctx, img, w, h, c, customNoticeImage) {
   const th = h * c.topHeight / 100;
   const scale = Math.max(0.62, w / 390);
-  const iconScale = scale * Math.max(0.6, Math.min(1.6, (c.iconScale || 100) / 100));
+  const s = scale * Math.max(0.6, Math.min(1.6, (c.iconScale || 100) / 100));
   coverRegion(ctx, img, 0, 0, w, th, c.topStyle, c.topColor, c.topOpacity);
   const cy = th / 2 + 0.5 * scale;
+  const gap = 6 * s;
+  const margin = 8 * s;
+
   ctx.fillStyle = c.iconColor;
   ctx.font = `600 ${15 * scale}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
   ctx.textBaseline = "middle";
+  const timeText = c.time || "00:00";
+  const timeWidth = ctx.measureText(timeText).width;
   if (c.timePosition === "center") {
     ctx.textAlign = "center";
-    ctx.fillText(c.time || "00:00", w / 2, cy);
+    ctx.fillText(timeText, w / 2, cy);
   } else if (c.timePosition === "right") {
     ctx.textAlign = "right";
-    ctx.fillText(c.time || "00:00", w * (1 - c.timeX / 100), cy);
+    ctx.fillText(timeText, w * (1 - c.timeX / 100), cy);
   } else {
     ctx.textAlign = "left";
-    ctx.fillText(c.time || "00:00", w * c.timeX / 100, cy);
+    ctx.fillText(timeText, w * c.timeX / 100, cy);
   }
 
   const notices = (c.notificationIcons || []).slice(0, 5);
-  let noticeX = 8 * iconScale;
-  if (c.timePosition === "left") {
-    ctx.font = `600 ${15 * scale}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
-    noticeX = Math.max(noticeX, w * c.timeX / 100 + ctx.measureText(c.time || "00:00").width + 8 * iconScale);
-  }
-  for (const notice of notices) {
-    noticeX += 7.5 * iconScale;
-    drawNotice(ctx, notice, noticeX, cy, iconScale, c.iconColor, customNoticeImage);
-    noticeX += 7.5 * iconScale;
-  }
-
-  const batteryX = w - 8 * iconScale - 24.5 * iconScale;
-  drawBattery(ctx, batteryX, cy, iconScale, c.battery, c.iconColor, c.batteryNumber);
-
-  const networkWidth = networkTypeWidth(c.network, iconScale);
-  const connectivityWidth = (c.wifi ? 18 * iconScale : 0) + 17 * iconScale + networkWidth;
-  const drawConnectivity = (startX) => {
-    let x = startX;
-    if (c.wifi) {
-      drawWifi(ctx, x + 7 * iconScale, cy, iconScale, c.iconColor, c.wifiStrength);
-      x += 18 * iconScale;
-    }
-    drawSignal(ctx, x, cy, iconScale, c.signalBars, c.iconColor);
-    x += 17 * iconScale;
-    drawNetworkType(ctx, c.network, x, cy, iconScale, c.iconColor);
+  const widths = {
+    notices: notices.length * 15 * s,
+    wifi: c.wifi ? 15 * s : 0,
+    signal: 17 * s + networkTypeWidth(c.network, s),
+    battery: 24.5 * s,
   };
-
-  if (c.iconPosition === "left") {
-    drawConnectivity(noticeX + 7 * iconScale);
-  } else {
-    drawConnectivity(batteryX - 8.5 * iconScale - connectivityWidth);
+  const pos = {};
+  let lx = margin;
+  if (c.timePosition === "left") lx = w * c.timeX / 100 + timeWidth + gap;
+  for (const key of ["notices", "wifi", "signal", "battery"]) {
+    if (itemSide(c, key) !== "left" || !widths[key]) continue;
+    pos[key] = lx;
+    lx += widths[key] + gap;
   }
+  let rx = w - margin;
+  for (const key of ["battery", "signal", "wifi", "notices"]) {
+    if (itemSide(c, key) !== "right" || !widths[key]) continue;
+    rx -= widths[key];
+    pos[key] = rx;
+    rx -= gap;
+  }
+
+  if (pos.notices !== undefined) {
+    let x = pos.notices;
+    for (const notice of notices) {
+      x += 7.5 * s;
+      drawNotice(ctx, notice, x, cy, s, c.iconColor, customNoticeImage);
+      x += 7.5 * s;
+    }
+  }
+  if (c.wifi && pos.wifi !== undefined) drawWifi(ctx, pos.wifi, cy, s, c.iconColor, c.wifiStrength, c.wifiStyle);
+  if (pos.signal !== undefined) {
+    drawSignal(ctx, pos.signal, cy, s, c.signalBars, c.iconColor);
+    drawNetworkType(ctx, c.network, pos.signal + 17 * s, cy, s, c.iconColor);
+  }
+  if (pos.battery !== undefined) drawBattery(ctx, pos.battery, cy, s, c.battery, c.iconColor, c.batteryNumber, c.batteryStyle, c.batteryCharging, c.batteryFill);
 }
 
 const NAV_PATH_DATA = {
@@ -567,6 +700,24 @@ function Toggle({ label, checked, onChange }) {
       <span>{label}</span>
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
     </label>
+  );
+}
+
+function SideToggle({ value, onChange }) {
+  return (
+    <div className="side-toggle">
+      <button type="button" className={value === "left" ? "active" : ""} onClick={() => onChange("left")}>左</button>
+      <button type="button" className={value === "right" ? "active" : ""} onClick={() => onChange("right")}>右</button>
+    </div>
+  );
+}
+
+function SideRow({ label, value, onChange }) {
+  return (
+    <div className="side-row">
+      <span>{label}</span>
+      <SideToggle value={value} onChange={onChange} />
+    </div>
   );
 }
 
@@ -757,21 +908,42 @@ export default function Home() {
               {config.timePosition !== "center" && <Range label="边缘距离" value={config.timeX} min={2} max={25} suffix="%" onChange={(v) => patch("timeX", v)} />}
 
               <div className="section-title"><span>状态图标</span><em>STATUS</em></div>
-              <div className="field-pair">
-                <SelectField label="信号组合位置" value={config.iconPosition} options={[["right","右侧"],["left","左侧"]]} onChange={(v) => patch("iconPosition", v)} />
-                <Range label="图标大小" value={config.iconScale} min={60} max={160} step={5} suffix="%" onChange={(v) => patch("iconScale", v)} />
-              </div>
-              <SelectField label="网络类型" value={config.network} options={["5G","4G","LTE","隐藏"]} onChange={(v) => patch("network", v)} />
-              <Range label="信号强度" value={config.signalBars} min={0} max={4} onChange={(v) => patch("signalBars", v)} />
-              {config.wifi && <Range label="Wi-Fi 强度" value={config.wifiStrength} min={0} max={3} onChange={(v) => patch("wifiStrength", v)} />}
-              <Range label="剩余电量" value={config.battery} min={1} max={100} suffix="%" onChange={(v) => patch("battery", v)} />
-              <div className="toggle-grid">
-                <Toggle label="显示 Wi-Fi" checked={config.wifi} onChange={(v) => patch("wifi", v)} />
-                <Toggle label="电池内数字" checked={config.batteryNumber} onChange={(v) => patch("batteryNumber", v)} />
-              </div>
+              <Range label="图标大小" value={config.iconScale} min={60} max={160} step={5} suffix="%" onChange={(v) => patch("iconScale", v)} />
               <SelectField label="系统图标颜色" value={config.iconColor} options={[["#ffffff","白色"],["#000000","黑色"]]} onChange={(v) => patch("iconColor", v)} />
 
+              <div className="section-title"><span>信号</span><em>SIGNAL</em></div>
+              <div className="field-pair">
+                <SelectField label="网络类型" value={config.network} options={["5G","4G","LTE","隐藏"]} onChange={(v) => patch("network", v)} />
+                <SideRow label="显示位置" value={config.signalSide} onChange={(v) => patch("signalSide", v)} />
+              </div>
+              <Range label="信号强度" value={config.signalBars} min={0} max={4} onChange={(v) => patch("signalBars", v)} />
+
+              <div className="section-title"><span>Wi-Fi</span><em>WIFI</em></div>
+              <div className="field-pair">
+                <SelectField label="图标样式" value={config.wifiStyle} options={[[1,"Wifi 1 弧线"],[2,"Wifi 2 填充扇形"],[3,"Wifi 3 填充三角"],[4,"Wifi 4 安卓扇面"],[5,"Wifi 5 双色粗弧"]]} onChange={(v) => patch("wifiStyle", Number(v))} />
+                <SideRow label="显示位置" value={config.wifiSide} onChange={(v) => patch("wifiSide", v)} />
+              </div>
+              <div className="toggle-grid">
+                <Toggle label="显示 Wi-Fi" checked={config.wifi} onChange={(v) => patch("wifi", v)} />
+              </div>
+              {config.wifi && <Range label="Wi-Fi 强度" value={config.wifiStrength} min={0} max={3} onChange={(v) => patch("wifiStrength", v)} />}
+
+              <div className="section-title"><span>电池</span><em>BATTERY</em></div>
+              <div className="field-pair">
+                <SelectField label="图标样式" value={config.batteryStyle} options={[[1,"电池 1 描边"],[2,"电池 2 灰边框"],[3,"电池 3 填充"],[4,"电池 4 数字填充"]]} onChange={(v) => patch("batteryStyle", Number(v))} />
+                <SideRow label="显示位置" value={config.batterySide} onChange={(v) => patch("batterySide", v)} />
+              </div>
+              <div className="field-pair">
+                <SelectField label="填充颜色" value={config.batteryFill} options={[["auto","跟随图标"],["green","绿色"]]} onChange={(v) => patch("batteryFill", v)} />
+              </div>
+              <Range label="剩余电量" value={config.battery} min={1} max={100} suffix="%" onChange={(v) => patch("battery", v)} />
+              <div className="toggle-grid">
+                <Toggle label="电池内数字" checked={config.batteryNumber} onChange={(v) => patch("batteryNumber", v)} />
+                <Toggle label="充电闪电" checked={config.batteryCharging} onChange={(v) => patch("batteryCharging", v)} />
+              </div>
+
               <div className="section-title"><span>通知图标</span><em>最多 5 个</em></div>
+              <SideRow label="显示位置" value={config.noticeSide} onChange={(v) => patch("noticeSide", v)} />
               <div className="notice-grid">
                 {NOTICE_OPTIONS.map(([value, label]) => {
                   const Glyph = NOTICE_ICONS[value];
