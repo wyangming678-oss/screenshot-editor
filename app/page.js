@@ -33,7 +33,7 @@ const DEFAULT_ITEMS = {
 
 const DEFAULT_CONFIG = {
   deviceType: "original",
-  topHeight: 5.2,
+  topHeight: 4.4,
   topStyle: "dark",
   topColor: "#0b0d12",
   topOpacity: 72,
@@ -738,18 +738,17 @@ function drawExtraBattery(ctx, id, x, cy, s, c) {
   } else if (id === "powersave") {
     ctx.fillStyle = c.iconColor;
     ctx.beginPath();
-    ctx.moveTo(x + 2 * s, cy + 5.2 * s);
-    ctx.quadraticCurveTo(x + 0.6 * s, cy - 3.6 * s, x + 11.4 * s, cy - 5.4 * s);
-    ctx.quadraticCurveTo(x + 12.6 * s, cy + 3.2 * s, x + 5 * s, cy + 4.8 * s);
-    ctx.quadraticCurveTo(x + 3.4 * s, cy + 5 * s, x + 2 * s, cy + 5.2 * s);
+    ctx.moveTo(x + 2.2 * s, cy + 5 * s);
+    ctx.quadraticCurveTo(x + 1.4 * s, cy - 3.8 * s, x + 11.2 * s, cy - 5 * s);
+    ctx.quadraticCurveTo(x + 12 * s, cy + 3.8 * s, x + 2.2 * s, cy + 5 * s);
     ctx.closePath();
     ctx.fill();
     punch(ctx, () => {
       ctx.strokeStyle = c.iconColor;
-      ctx.lineWidth = 1.2 * s;
+      ctx.lineWidth = 1.1 * s;
       ctx.beginPath();
-      ctx.moveTo(x + 3 * s, cy + 4 * s);
-      ctx.quadraticCurveTo(x + 6 * s, cy + 1 * s, x + 9.6 * s, cy - 3 * s);
+      ctx.moveTo(x + 2.6 * s, cy + 4.4 * s);
+      ctx.quadraticCurveTo(x + 5.4 * s, cy + 1.4 * s, x + 10.4 * s, cy - 4.2 * s);
       ctx.stroke();
     });
   } else if (id === "chargeMark1") {
@@ -780,13 +779,13 @@ function drawOtherIcon(ctx, id, x, cy, s, color) {
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   if (id === "headphone1") {
-    ctx.lineWidth = 1.9 * s;
+    ctx.lineWidth = 2.1 * s;
     ctx.beginPath();
-    ctx.arc(x + 6.5 * s, cy + 1.2 * s, 5.3 * s, Math.PI, 0);
+    ctx.arc(x + 6.5 * s, cy + 1.4 * s, 5.2 * s, Math.PI, 0);
     ctx.stroke();
-    roundedRect(ctx, x + 0.5 * s, cy + 0.4 * s, 2.9 * s, 5.4 * s, 1.4 * s);
+    roundedRect(ctx, x + 0.3 * s, cy + 0.2 * s, 3.2 * s, 6.2 * s, 1.5 * s);
     ctx.fill();
-    roundedRect(ctx, x + 9.6 * s, cy + 0.4 * s, 2.9 * s, 5.4 * s, 1.4 * s);
+    roundedRect(ctx, x + 9.5 * s, cy + 0.2 * s, 3.2 * s, 6.2 * s, 1.5 * s);
     ctx.fill();
   } else if (id === "vibrate1") {
     ctx.lineWidth = 1.5 * s;
@@ -1111,7 +1110,7 @@ function getItem(c, id) {
 
 function buildTopElements(ctx, w, c, customImages) {
   const base = Math.max(0.62, w / 390);
-  const gs = base * Math.max(0.6, Math.min(1.6, c.iconScale / 100));
+  const gs = base * Math.max(0.6, Math.min(1.6, c.iconScale / 100)) * 1.35;
   const els = [];
   const wifiFirst = c.wifiSimOrder === "wifiFirst";
   const wifiOrder = wifiFirst ? 26 : 44;
@@ -1239,7 +1238,7 @@ function drawTop(ctx, img, w, h, c, customImages) {
   const margin = 8 * scale;
 
   const weight = Math.max(100, Math.min(900, c.timeWeight));
-  const timeFont = `${weight} ${15 * scale * (c.timeSize / 100)}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+  const timeFont = `${weight} ${18 * scale * (c.timeSize / 100)}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
   const parts = [c.time || "00:00"];
   if (c.showSuffix && c.timeSuffix) parts.push(c.timeSuffix);
   if (c.showCarrier && c.carrier) parts.push(c.carrier);
