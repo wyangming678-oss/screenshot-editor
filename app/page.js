@@ -17,7 +17,7 @@ const DEFAULT_ITEMS = {
   sim1Arrow: { ...OFF_ITEM }, sim1Type: { on: true, side: "right", size: 100, dx: 0, dy: 0 },
   sim2Question: { ...OFF_ITEM }, sim2Bars: { ...OFF_ITEM }, sim2Arrow: { ...OFF_ITEM }, sim2Type: { ...OFF_ITEM },
   speed1: { ...OFF_ITEM, side: "right" }, speed2: { ...OFF_ITEM },
-  mark1: { ...OFF_ITEM }, mark2: { ...OFF_ITEM }, mark3: { ...OFF_ITEM }, mark4: { ...OFF_ITEM },
+  mark1: { ...OFF_ITEM }, mark2: { ...OFF_ITEM }, mark3: { ...OFF_ITEM }, mark4: { ...OFF_ITEM }, mark5: { ...OFF_ITEM },
   signal6: { ...OFF_ITEM }, signal7: { ...OFF_ITEM }, signal8: { ...OFF_ITEM },
   wifiArrow1: { on: true, side: "right", size: 100, dx: 0, dy: 0 },
   wifi: { on: true, side: "right", size: 100, dx: 0, dy: 0 },
@@ -28,6 +28,7 @@ const DEFAULT_ITEMS = {
   headphone1: { on: true, side: "right", size: 100, dx: 0, dy: 0 },
   vibrate1: { ...OFF_ITEM }, nfc1: { ...OFF_ITEM }, eyecare1: { ...OFF_ITEM },
   alarm1: { ...OFF_ITEM }, bluetooth1: { ...OFF_ITEM },
+  mute1: { ...OFF_ITEM }, speaker1: { ...OFF_ITEM }, gauge1: { ...OFF_ITEM }, nosim1: { ...OFF_ITEM },
 };
 
 const DEFAULT_CONFIG = {
@@ -114,13 +115,13 @@ const DEVICE_PATCH = {
 
 const BATTERY_TYPES = [
   [1, "电池 1", "Samsung · 数字回圈"],
-  [2, "电池 2", "华为 / 荣耀 · 框内数字"],
+  [2, "电池 2", "华为 / 荣耀 · 粗框浅填充 + 框内数字"],
   [3, "电池 3", "华为 / 荣耀 · 经典外置数字"],
   [4, "电池 4", "iPhone · 圆角框"],
   [5, "电池 5", "小米 · 实心横向"],
-  [6, "电池 6", "OPPO · 胶囊细框"],
+  [6, "电池 6", "OPPO · 实心分体 + 掏空数字"],
   [7, "电池 7", "Pixel · 紧凑横向"],
-  [8, "电池 8", "Motorola · 竖向"],
+  [8, "电池 8", "Motorola · 竖向实心"],
   [9, "电池 9", "参考胶囊 · 窄竖向"],
   [10, "电池 10", "框内百分比徽章"],
 ];
@@ -131,8 +132,9 @@ const SIGNAL_SHAPES = [
 ];
 
 const WIFI_STYLES = [
-  [1, "WiFi 1 · 安卓标准"], [2, "WiFi 2 · 填充扇形"], [3, "WiFi 3 · 填充三角"],
-  [4, "WiFi 4 · 空心扇面"], [5, "WiFi 5 · 双色粗弧"],
+  [1, "WiFi 1 · 安卓标准粗弧"], [2, "WiFi 2 · 填充扇形"], [3, "WiFi 3 · 填充三角"],
+  [4, "WiFi 4 · 空心扇面"], [5, "WiFi 5 · 双色粗弧"], [6, "WiFi 6 · 四弧"],
+  [7, "WiFi 7 · 加号增强"], [8, "WiFi 8 · 实心扇掏空箭头"],
 ];
 
 const NETWORK_OPTIONS = ["5G+", "5G", "4G+", "4G", "LTE", "H+", "3G", "E", "隐藏"];
@@ -307,23 +309,24 @@ function drawNetworkType(ctx, type, x, cy, s, color) {
   ctx.font = sysFont(8.9 * s);
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
-  ctx.fillText(type, x, cy + 0.25 * s);
+  ctx.fillText(type, x, cy - 3.6 * s);
   ctx.restore();
 }
 
-function drawDataArrows(ctx, x, cy, s, color) {
+function drawDataArrows(ctx, x, cy, s, color, dim) {
   ctx.save();
   ctx.fillStyle = color;
+  ctx.globalAlpha = dim ? 0.4 : 1;
   ctx.beginPath();
-  ctx.moveTo(x + 2.4 * s, cy - 4.4 * s);
-  ctx.lineTo(x + 4.8 * s, cy - 1.4 * s);
-  ctx.lineTo(x, cy - 1.4 * s);
+  ctx.moveTo(x + 1.9 * s, cy - 3.6 * s);
+  ctx.lineTo(x + 3.9 * s, cy - 0.8 * s);
+  ctx.lineTo(x, cy - 0.8 * s);
   ctx.closePath();
   ctx.fill();
   ctx.beginPath();
-  ctx.moveTo(x + 6.6 * s, cy + 4.4 * s);
-  ctx.lineTo(x + 9 * s, cy + 1.4 * s);
-  ctx.lineTo(x + 4.2 * s, cy + 1.4 * s);
+  ctx.moveTo(x + 5.6 * s, cy + 3.6 * s);
+  ctx.lineTo(x + 7.6 * s, cy + 0.8 * s);
+  ctx.lineTo(x + 3.7 * s, cy + 0.8 * s);
   ctx.closePath();
   ctx.fill();
   ctx.restore();
@@ -380,6 +383,20 @@ function drawMark(ctx, x, cy, s, color, kind) {
     ctx.font = sysFont(8.6 * s);
     ctx.textAlign = "left";
     ctx.fillText("5G", x, cy + 0.3 * s);
+  } else if (kind === "mark5") {
+    ctx.lineWidth = 1 * s;
+    roundedRect(ctx, x, cy - 4.6 * s, 11 * s, 9.2 * s, 2.2 * s);
+    ctx.stroke();
+    ctx.font = sysFont(5.8 * s);
+    ctx.fillText("HD", x + 5.5 * s, cy + 0.3 * s);
+    ctx.lineWidth = 0.8 * s;
+    roundedRect(ctx, x + 12.2 * s, cy - 4.6 * s, 4.6 * s, 4.2 * s, 1.2 * s);
+    ctx.stroke();
+    roundedRect(ctx, x + 12.2 * s, cy + 0.4 * s, 4.6 * s, 4.2 * s, 1.2 * s);
+    ctx.stroke();
+    ctx.font = sysFont(3.4 * s);
+    ctx.fillText("1", x + 14.5 * s, cy - 2.4 * s);
+    ctx.fillText("2", x + 14.5 * s, cy + 2.6 * s);
   } else {
     ctx.font = sysFont(8.6 * s);
     ctx.textAlign = "left";
@@ -391,6 +408,7 @@ function drawMark(ctx, x, cy, s, color, kind) {
 function markWidth(ctx, s, kind) {
   if (kind === "mark1") return 13 * s;
   if (kind === "mark2") return 11 * s;
+  if (kind === "mark5") return 17 * s;
   return textWidth(ctx, kind === "mark3" ? "5G" : "4G", sysFont(8.6 * s));
 }
 
@@ -408,6 +426,20 @@ function drawWifi(ctx, x, cy, scale, color, strength, style) {
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
   ctx.lineCap = "round";
+  const arcs = (radii, lw, apex) => {
+    ctx.lineWidth = lw * s;
+    radii.forEach((r, i) => {
+      ctx.globalAlpha = strength >= radii.length - i ? 1 : 0.22;
+      ctx.beginPath();
+      ctx.arc(cx, apex, r * s, Math.PI * 1.24, Math.PI * 1.76);
+      ctx.stroke();
+    });
+    ctx.globalAlpha = strength > 0 ? 1 : 0.22;
+    ctx.beginPath();
+    ctx.arc(cx, apex + 1.6 * s, 1.5 * s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  };
   if (style === 2) {
     const apexY = cy + 5.5 * s;
     ctx.globalAlpha = 0.25;
@@ -446,18 +478,36 @@ function drawWifi(ctx, x, cy, scale, color, strength, style) {
     ctx.beginPath();
     ctx.arc(cx, cy + 5.2 * s, 1.6 * s, 0, Math.PI * 2);
     ctx.fill();
-  } else {
-    ctx.lineWidth = 1.55 * s;
-    [[7, 3], [4.8, 2], [2.4, 1]].forEach(([r, level]) => {
-      ctx.globalAlpha = strength >= level ? 1 : 0.22;
-      ctx.beginPath();
-      ctx.arc(cx, cy + 3.4 * s, r * s, Math.PI * 1.22, Math.PI * 1.78);
-      ctx.stroke();
-    });
-    ctx.globalAlpha = strength > 0 ? 1 : 0.22;
+  } else if (style === 6) {
+    arcs([2.4, 4.6, 6.8, 9], 2, cy + 3.6 * s);
+  } else if (style === 7) {
+    arcs([2.6, 5, 7.4], 2.1, cy + 3.4 * s);
+    ctx.lineWidth = 1.8 * s;
     ctx.beginPath();
-    ctx.arc(cx, cy + 5 * s, 1.25 * s, 0, Math.PI * 2);
+    ctx.moveTo(x + 12.6 * s, cy - 3.4 * s);
+    ctx.lineTo(x + 12.6 * s, cy + 0.6 * s);
+    ctx.moveTo(x + 10.6 * s, cy - 1.4 * s);
+    ctx.lineTo(x + 14.6 * s, cy - 1.4 * s);
+    ctx.stroke();
+  } else if (style === 8) {
+    ctx.globalAlpha = strength > 0 ? 1 : 0.25;
+    wifiSectorPath(ctx, cx, cy + 5.5 * s, 8.4 * s);
     ctx.fill();
+    ctx.globalAlpha = 1;
+    punch(ctx, () => {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - 1.6 * s);
+      ctx.lineTo(cx + 2 * s, cy + 0.6 * s);
+      ctx.lineTo(cx - 2 * s, cy + 0.6 * s);
+      ctx.closePath();
+      ctx.moveTo(cx, cy + 4.4 * s);
+      ctx.lineTo(cx + 2 * s, cy + 2.2 * s);
+      ctx.lineTo(cx - 2 * s, cy + 2.2 * s);
+      ctx.closePath();
+      ctx.fill();
+    });
+  } else {
+    arcs([2.6, 5, 7.4], 2.1, cy + 3.4 * s);
   }
   ctx.restore();
 }
@@ -501,52 +551,100 @@ function drawBatteryBody(ctx, type, bx, cy, s, c) {
   const color = c.iconColor;
   const inner = batteryInnerColor(c);
   const vertical = type === 8 || type === 9;
-  const w = vertical ? (type === 8 ? 10 * s : 6.4 * s) : (type === 7 ? 18 * s : 22 * s);
+  const w = vertical ? (type === 8 ? 10 * s : 8 * s) : (type === 7 ? 18 * s : 22 * s);
   const h = vertical ? 20 * s : (type === 7 ? 8.4 * s : 10.5 * s);
-  const cap = () => {
+  const cap = (alpha) => {
+    ctx.save();
+    ctx.globalAlpha = alpha === undefined ? 1 : alpha;
     ctx.fillStyle = color;
-    if (vertical) roundedRect(ctx, bx + w / 2 - 2 * s, cy - h / 2 - 1.6 * s, 4 * s, 1.6 * s, 0.8 * s);
-    else roundedRect(ctx, bx + w + 1.3 * s, cy - 2.2 * s, 1.7 * s, 4.4 * s, 0.85 * s);
+    if (vertical) roundedRect(ctx, bx + w / 2 - 2 * s, cy - h / 2 - 1.8 * s, 4 * s, 1.8 * s, 0.9 * s);
+    else roundedRect(ctx, bx + w + 1.4 * s, cy - 2.2 * s, 1.8 * s, 4.4 * s, 0.9 * s);
     ctx.fill();
+    ctx.restore();
   };
-  const fillRatio = (pad, radius) => {
-    ctx.fillStyle = inner;
-    if (vertical) {
-      const ih = (h - pad * 2) * val / 100;
-      roundedRect(ctx, bx + pad, cy + h / 2 - pad - ih, w - pad * 2, ih, radius);
+  const insideDigits = (punched) => {
+    ctx.save();
+    ctx.font = `700 ${6.6 * s}px system-ui, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const label = String(Math.round(val));
+    if (punched) {
+      punch(ctx, () => ctx.fillText(label, bx + w / 2, cy + 0.3 * s));
     } else {
-      const iw = (w - pad * 2) * val / 100;
-      roundedRect(ctx, bx + pad, cy - h / 2 + pad, iw, h - pad * 2, radius);
+      ctx.fillStyle = color;
+      ctx.fillText(label, bx + w / 2, cy + 0.3 * s);
     }
-    ctx.fill();
+    ctx.restore();
   };
   ctx.save();
   ctx.lineCap = "round";
-  if (type === 5) {
+  if (vertical) {
+    if (type === 8) {
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.32;
+      roundedRect(ctx, bx, cy - h / 2, w, h, 2.8 * s);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      const ih = (h - 1.6 * s) * val / 100;
+      ctx.fillStyle = inner === "#34c759" && c.batteryInnerColor === "auto" ? color : inner;
+      roundedRect(ctx, bx + 0.8 * s, cy + h / 2 - 0.8 * s - ih, w - 1.6 * s, ih, 2 * s);
+      ctx.fill();
+      cap(0.6);
+    } else {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.4 * s;
+      roundedRect(ctx, bx, cy - h / 2, w, h, 2.6 * s);
+      ctx.stroke();
+      cap();
+      const ih = (h - 2.8 * s) * val / 100;
+      ctx.fillStyle = inner;
+      roundedRect(ctx, bx + 1.4 * s, cy + h / 2 - 1.4 * s - ih, w - 2.8 * s, ih, 1.4 * s);
+      ctx.fill();
+      if (c.batteryCharging) drawBolt(ctx, bx + w / 2, cy, s * 0.7, color === "#ffffff" ? "#111318" : "#ffffff");
+    }
+  } else if (type === 5) {
     ctx.fillStyle = inner;
     roundedRect(ctx, bx, cy - h / 2, w, h, 3.2 * s);
     ctx.fill();
     cap();
-  } else if (vertical) {
+  } else if (type === 6) {
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.35;
+    roundedRect(ctx, bx, cy - h / 2, w, h, 3.2 * s);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    const iw = (w - 1.2 * s) * val / 100;
+    ctx.fillStyle = color;
+    roundedRect(ctx, bx + 0.6 * s, cy - h / 2 + 0.6 * s, iw, h - 1.2 * s, 2.6 * s);
+    ctx.fill();
+    cap();
+    insideDigits(true);
+  } else if (type === 2) {
     ctx.strokeStyle = color;
-    ctx.lineWidth = 1.1 * s;
-    ctx.globalAlpha = 0.75;
-    roundedRect(ctx, bx, cy - h / 2, w, h, 2.6 * s);
+    ctx.lineWidth = 1.6 * s;
+    roundedRect(ctx, bx, cy - h / 2, w, h, 3.4 * s);
     ctx.stroke();
     cap();
-    ctx.globalAlpha = 1;
-    fillRatio(1.4 * s, 1.2 * s);
-    if (type === 9 && c.batteryCharging) drawBolt(ctx, bx + w / 2, cy, s * 0.7, color === "#ffffff" ? "#111318" : "#ffffff");
+    ctx.save();
+    ctx.globalAlpha = 0.28;
+    ctx.fillStyle = color;
+    const iw = (w - 3.2 * s) * val / 100;
+    roundedRect(ctx, bx + 1.6 * s, cy - h / 2 + 1.6 * s, iw, h - 3.2 * s, 1.8 * s);
+    ctx.fill();
+    ctx.restore();
+    insideDigits(false);
   } else {
-    const border = type === 2 ? "#d3d3d3" : color;
-    ctx.strokeStyle = border;
-    ctx.lineWidth = type === 6 ? 0.8 * s : 1.1 * s;
-    ctx.globalAlpha = type === 2 || type === 6 ? 1 : 0.65;
-    roundedRect(ctx, bx, cy - h / 2, w, h, type === 6 ? h / 2 : 3.2 * s);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = type === 7 ? 0.9 * s : 1.4 * s;
+    ctx.globalAlpha = type === 7 ? 1 : 0.85;
+    roundedRect(ctx, bx, cy - h / 2, w, h, type === 7 ? h / 2 : 3.2 * s);
     ctx.stroke();
     cap();
     ctx.globalAlpha = 1;
-    fillRatio(1.6 * s, 1.4 * s);
+    ctx.fillStyle = inner;
+    const iw = (w - 3.2 * s) * val / 100;
+    roundedRect(ctx, bx + 1.6 * s, cy - h / 2 + 1.6 * s, iw, h - 3.2 * s, 1.6 * s);
+    ctx.fill();
   }
   if (type === 1 || type === 10) {
     const badgeR = type === 1 ? 4.6 * s : 0;
@@ -567,8 +665,8 @@ function drawBatteryBody(ctx, type, bx, cy, s, c) {
     ctx.textBaseline = "middle";
     ctx.fillText(String(Math.round(val)), bx + w / 2, cy + 0.3 * s);
   }
-  if (c.batteryCharging && type !== 9) {
-    drawBolt(ctx, bx + w / 2, cy, s * (vertical ? 0.7 : 0.85), inner === "#34c759" || color === "#ffffff" ? "#111318" : "#ffffff");
+  if (c.batteryCharging && type !== 9 && type !== 8 && type !== 6) {
+    drawBolt(ctx, bx + w / 2, cy, s * 0.85, inner === "#34c759" || color === "#ffffff" ? "#111318" : "#ffffff");
   }
   ctx.restore();
 }
@@ -591,16 +689,16 @@ function drawExtraBattery(ctx, id, x, cy, s, c) {
   ctx.lineCap = "round";
   const hFrame = (w, h, stroke, fill, ratio, num) => {
     ctx.strokeStyle = stroke;
-    ctx.lineWidth = 1.1 * s;
-    roundedRect(ctx, x, cy - h / 2, w, h, 3.2 * s);
+    ctx.lineWidth = 1.6 * s;
+    roundedRect(ctx, x, cy - h / 2, w, h, 3.4 * s);
     ctx.stroke();
     ctx.fillStyle = stroke;
-    roundedRect(ctx, x + w + 1.3 * s, cy - 2.2 * s, 1.7 * s, 4.4 * s, 0.85 * s);
+    roundedRect(ctx, x + w + 1.4 * s, cy - 2.2 * s, 1.8 * s, 4.4 * s, 0.9 * s);
     ctx.fill();
     if (fill) {
       ctx.fillStyle = fill;
       const iw = (w - 3.2 * s) * ratio;
-      roundedRect(ctx, x + 1.6 * s, cy - h / 2 + 1.6 * s, iw, h - 3.2 * s, 1.4 * s);
+      roundedRect(ctx, x + 1.6 * s, cy - h / 2 + 1.6 * s, iw, h - 3.2 * s, 1.8 * s);
       ctx.fill();
     }
     if (num !== undefined) {
@@ -638,19 +736,22 @@ function drawExtraBattery(ctx, id, x, cy, s, c) {
     ctx.fill();
     drawBolt(ctx, x + 5 * s, cy, s * 0.75, c.iconColor);
   } else if (id === "powersave") {
-    ctx.strokeStyle = c.iconColor;
-    ctx.lineWidth = 1.3 * s;
+    ctx.fillStyle = c.iconColor;
     ctx.beginPath();
-    ctx.moveTo(x + 2 * s, cy + 5 * s);
-    ctx.quadraticCurveTo(x + 1 * s, cy - 4 * s, x + 11 * s, cy - 5.4 * s);
-    ctx.quadraticCurveTo(x + 12 * s, cy + 3 * s, x + 5 * s, cy + 4.6 * s);
-    ctx.quadraticCurveTo(x + 3.4 * s, cy + 4.8 * s, x + 2 * s, cy + 5 * s);
+    ctx.moveTo(x + 2 * s, cy + 5.2 * s);
+    ctx.quadraticCurveTo(x + 0.6 * s, cy - 3.6 * s, x + 11.4 * s, cy - 5.4 * s);
+    ctx.quadraticCurveTo(x + 12.6 * s, cy + 3.2 * s, x + 5 * s, cy + 4.8 * s);
+    ctx.quadraticCurveTo(x + 3.4 * s, cy + 5 * s, x + 2 * s, cy + 5.2 * s);
     ctx.closePath();
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(x + 3 * s, cy + 4 * s);
-    ctx.quadraticCurveTo(x + 6 * s, cy + 1 * s, x + 9.6 * s, cy - 3 * s);
-    ctx.stroke();
+    ctx.fill();
+    punch(ctx, () => {
+      ctx.strokeStyle = c.iconColor;
+      ctx.lineWidth = 1.2 * s;
+      ctx.beginPath();
+      ctx.moveTo(x + 3 * s, cy + 4 * s);
+      ctx.quadraticCurveTo(x + 6 * s, cy + 1 * s, x + 9.6 * s, cy - 3 * s);
+      ctx.stroke();
+    });
   } else if (id === "chargeMark1") {
     drawBolt(ctx, x + 4 * s, cy, s, c.iconColor);
   }
@@ -664,72 +765,160 @@ function extraBatteryWidth(id, s) {
   return 24.5 * s;
 }
 
+function punch(ctx, fn) {
+  ctx.save();
+  ctx.globalCompositeOperation = "destination-out";
+  fn();
+  ctx.restore();
+}
+
 function drawOtherIcon(ctx, id, x, cy, s, color) {
   ctx.save();
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
-  ctx.lineWidth = 1.4 * s;
+  ctx.lineWidth = 1.5 * s;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   if (id === "headphone1") {
+    ctx.lineWidth = 1.9 * s;
     ctx.beginPath();
-    ctx.arc(x + 6.5 * s, cy + 1 * s, 5.6 * s, Math.PI, 0);
+    ctx.arc(x + 6.5 * s, cy + 1.2 * s, 5.3 * s, Math.PI, 0);
     ctx.stroke();
-    roundedRect(ctx, x + 0.4 * s, cy + 0.6 * s, 3 * s, 5 * s, 1.2 * s);
+    roundedRect(ctx, x + 0.5 * s, cy + 0.4 * s, 2.9 * s, 5.4 * s, 1.4 * s);
     ctx.fill();
-    roundedRect(ctx, x + 9.6 * s, cy + 0.6 * s, 3 * s, 5 * s, 1.2 * s);
+    roundedRect(ctx, x + 9.6 * s, cy + 0.4 * s, 2.9 * s, 5.4 * s, 1.4 * s);
     ctx.fill();
   } else if (id === "vibrate1") {
-    roundedRect(ctx, x + 4.2 * s, cy - 5.4 * s, 5.6 * s, 10.8 * s, 1.6 * s);
+    ctx.lineWidth = 1.5 * s;
+    roundedRect(ctx, x + 4.5 * s, cy - 5.2 * s, 4.6 * s, 10.4 * s, 1.7 * s);
     ctx.stroke();
+    ctx.lineWidth = 1.2 * s;
     ctx.beginPath();
-    ctx.moveTo(x + 1.6 * s, cy - 3 * s);
-    ctx.lineTo(x + 1.6 * s, cy + 3 * s);
-    ctx.moveTo(x + 12.4 * s, cy - 3 * s);
-    ctx.lineTo(x + 12.4 * s, cy + 3 * s);
+    ctx.moveTo(x + 2.7 * s, cy - 3.4 * s);
+    ctx.lineTo(x + 1.4 * s, cy - 1.7 * s);
+    ctx.lineTo(x + 2.7 * s, cy);
+    ctx.lineTo(x + 1.4 * s, cy + 1.7 * s);
+    ctx.lineTo(x + 2.7 * s, cy + 3.4 * s);
+    ctx.moveTo(x + 10.9 * s, cy - 3.4 * s);
+    ctx.lineTo(x + 12.2 * s, cy - 1.7 * s);
+    ctx.lineTo(x + 10.9 * s, cy);
+    ctx.lineTo(x + 12.2 * s, cy + 1.7 * s);
+    ctx.lineTo(x + 10.9 * s, cy + 3.4 * s);
     ctx.stroke();
   } else if (id === "nfc1") {
-    ctx.font = sysFont(9.5 * s);
-    ctx.textAlign = "left";
-    ctx.textBaseline = "middle";
-    ctx.fillText("N", x + 1.5 * s, cy + 0.4 * s);
+    ctx.lineWidth = 1.9 * s;
+    roundedRect(ctx, x + 0.8 * s, cy - 6 * s, 12 * s, 12 * s, 3.2 * s);
+    ctx.stroke();
     ctx.beginPath();
-    ctx.arc(x + 4 * s, cy, 6.4 * s, -Math.PI * 0.32, Math.PI * 0.32);
+    ctx.moveTo(x + 3.6 * s, cy + 3.2 * s);
+    ctx.lineTo(x + 10 * s, cy - 3.2 * s);
     ctx.stroke();
   } else if (id === "eyecare1") {
     ctx.beginPath();
     ctx.moveTo(x + 0.6 * s, cy);
-    ctx.quadraticCurveTo(x + 6.5 * s, cy - 6.4 * s, x + 12.4 * s, cy);
-    ctx.quadraticCurveTo(x + 6.5 * s, cy + 6.4 * s, x + 0.6 * s, cy);
+    ctx.quadraticCurveTo(x + 6.5 * s, cy - 6.2 * s, x + 12.4 * s, cy);
+    ctx.quadraticCurveTo(x + 6.5 * s, cy + 6.2 * s, x + 0.6 * s, cy);
     ctx.closePath();
-    ctx.stroke();
+    ctx.fill();
+    punch(ctx, () => {
+      ctx.beginPath();
+      ctx.arc(x + 6.5 * s, cy, 2.5 * s, 0, Math.PI * 2);
+      ctx.fill();
+    });
     ctx.beginPath();
-    ctx.arc(x + 6.5 * s, cy, 2.2 * s, 0, Math.PI * 2);
+    ctx.arc(x + 7.5 * s, cy - 1 * s, 0.9 * s, 0, Math.PI * 2);
     ctx.fill();
   } else if (id === "alarm1") {
+    ctx.lineWidth = 1.9 * s;
     ctx.beginPath();
-    ctx.arc(x + 6.5 * s, cy + 0.8 * s, 4.8 * s, 0, Math.PI * 2);
+    ctx.moveTo(x + 2.5 * s, cy - 5 * s);
+    ctx.lineTo(x + 4.5 * s, cy - 6.6 * s);
+    ctx.moveTo(x + 10.5 * s, cy - 5 * s);
+    ctx.lineTo(x + 8.5 * s, cy - 6.6 * s);
+    ctx.moveTo(x + 3.2 * s, cy + 4.8 * s);
+    ctx.lineTo(x + 2.1 * s, cy + 6.2 * s);
+    ctx.moveTo(x + 9.8 * s, cy + 4.8 * s);
+    ctx.lineTo(x + 10.9 * s, cy + 6.2 * s);
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(x + 6.5 * s, cy - 1.6 * s);
-    ctx.lineTo(x + 6.5 * s, cy + 0.8 * s);
-    ctx.lineTo(x + 8.4 * s, cy + 2 * s);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(x + 2 * s, cy - 4.6 * s);
-    ctx.lineTo(x + 4.2 * s, cy - 6.2 * s);
-    ctx.moveTo(x + 11 * s, cy - 4.6 * s);
-    ctx.lineTo(x + 8.8 * s, cy - 6.2 * s);
-    ctx.stroke();
+    ctx.arc(x + 6.5 * s, cy, 5.2 * s, 0, Math.PI * 2);
+    ctx.fill();
+    punch(ctx, () => {
+      ctx.lineWidth = 1.5 * s;
+      ctx.beginPath();
+      ctx.moveTo(x + 6.5 * s, cy);
+      ctx.lineTo(x + 6.5 * s, cy - 3 * s);
+      ctx.moveTo(x + 6.5 * s, cy);
+      ctx.lineTo(x + 8.7 * s, cy + 1.3 * s);
+      ctx.stroke();
+    });
   } else if (id === "bluetooth1") {
+    ctx.lineWidth = 1.7 * s;
     ctx.beginPath();
-    ctx.moveTo(x + 3 * s, cy - 3.4 * s);
-    ctx.lineTo(x + 10 * s, cy + 3.4 * s);
-    ctx.lineTo(x + 6.5 * s, cy + 6 * s);
-    ctx.lineTo(x + 6.5 * s, cy - 6 * s);
-    ctx.lineTo(x + 10 * s, cy - 3.4 * s);
-    ctx.lineTo(x + 3 * s, cy + 3.4 * s);
+    ctx.moveTo(x + 3.4 * s, cy - 3.2 * s);
+    ctx.lineTo(x + 9.6 * s, cy + 3 * s);
+    ctx.lineTo(x + 6.5 * s, cy + 5.6 * s);
+    ctx.lineTo(x + 6.5 * s, cy - 5.6 * s);
+    ctx.lineTo(x + 9.6 * s, cy - 3 * s);
+    ctx.lineTo(x + 3.4 * s, cy + 3.2 * s);
     ctx.stroke();
+  } else if (id === "mute1") {
+    ctx.beginPath();
+    ctx.arc(x + 6.5 * s, cy - 0.8 * s, 4.4 * s, Math.PI, 0);
+    ctx.lineTo(x + 10.9 * s, cy + 2.6 * s);
+    ctx.lineTo(x + 2.1 * s, cy + 2.6 * s);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x + 6.5 * s, cy + 4.2 * s, 1.5 * s, 0, Math.PI * 2);
+    ctx.fill();
+    punch(ctx, () => {
+      ctx.lineWidth = 1.7 * s;
+      ctx.beginPath();
+      ctx.moveTo(x + 1.6 * s, cy - 5.6 * s);
+      ctx.lineTo(x + 11.4 * s, cy + 4.8 * s);
+      ctx.stroke();
+    });
+  } else if (id === "speaker1") {
+    ctx.beginPath();
+    ctx.moveTo(x + 1.4 * s, cy - 1.7 * s);
+    ctx.lineTo(x + 3.8 * s, cy - 1.7 * s);
+    ctx.lineTo(x + 6.8 * s, cy - 4.4 * s);
+    ctx.lineTo(x + 6.8 * s, cy + 4.4 * s);
+    ctx.lineTo(x + 3.8 * s, cy + 1.7 * s);
+    ctx.lineTo(x + 1.4 * s, cy + 1.7 * s);
+    ctx.closePath();
+    ctx.fill();
+    ctx.lineWidth = 1.4 * s;
+    ctx.beginPath();
+    ctx.arc(x + 7.6 * s, cy, 3 * s, -Math.PI * 0.32, Math.PI * 0.32);
+    ctx.stroke();
+    punch(ctx, () => {
+      ctx.lineWidth = 1.6 * s;
+      ctx.beginPath();
+      ctx.moveTo(x + 1.2 * s, cy - 5.2 * s);
+      ctx.lineTo(x + 11 * s, cy + 5.2 * s);
+      ctx.stroke();
+    });
+  } else if (id === "gauge1") {
+    ctx.lineWidth = 1.7 * s;
+    ctx.beginPath();
+    ctx.arc(x + 6.5 * s, cy, 5.4 * s, Math.PI * 0.72, Math.PI * 2.28);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + 6.5 * s, cy);
+    ctx.lineTo(x + 9.2 * s, cy - 3 * s);
+    ctx.stroke();
+  } else if (id === "nosim1") {
+    roundedRect(ctx, x + 2.6 * s, cy - 5.6 * s, 7.8 * s, 11.2 * s, 2.2 * s);
+    ctx.fill();
+    punch(ctx, () => {
+      roundedRect(ctx, x + 5.7 * s, cy - 3.4 * s, 1.6 * s, 4.2 * s, 0.8 * s);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(x + 6.5 * s, cy + 2.6 * s, 0.9 * s, 0, Math.PI * 2);
+      ctx.fill();
+    });
   }
   ctx.restore();
 }
@@ -950,10 +1139,11 @@ function buildTopElements(ctx, w, c, customImages) {
     add(`custom${i + 1}`, 1 + i, 15 * gs, (x, cy, s) => drawNotice(ctx, "custom", x + 7.5 * s, cy, s, c.iconColor, ci.img));
   });
 
-  const others = ["headphone1", "vibrate1", "nfc1", "eyecare1", "alarm1", "bluetooth1"];
-  others.forEach((id, i) => add(id, 10 + i, 14 * gs + (i < others.length - 1 ? c.otherGap * gs : 0), (x, cy, s) => drawOtherIcon(ctx, id, x, cy, s, c.iconColor)));
+  const OTHER_WIDTHS = { headphone1: 13, vibrate1: 13.6, nfc1: 13.6, eyecare1: 13, alarm1: 13, bluetooth1: 13, mute1: 13, speaker1: 12.4, gauge1: 13, nosim1: 10.4 };
+  const others = ["headphone1", "vibrate1", "nfc1", "eyecare1", "alarm1", "bluetooth1", "mute1", "speaker1", "gauge1", "nosim1"];
+  others.forEach((id, i) => add(id, 10 + i, OTHER_WIDTHS[id] * gs + (i < others.length - 1 ? c.otherGap * gs : 0), (x, cy, s) => drawOtherIcon(ctx, id, x, cy, s, c.iconColor)));
 
-  [["mark1", 20], ["mark2", 21], ["mark3", 22], ["mark4", 23]].forEach(([id, order]) => {
+  [["mark1", 20], ["mark2", 21], ["mark5", 21.5], ["mark3", 22], ["mark4", 23]].forEach(([id, order]) => {
     add(id, order, markWidth(ctx, gs, id), (x, cy, s) => drawMark(ctx, x, cy, s, c.iconColor, id));
   });
 
@@ -1511,7 +1701,7 @@ export default function Home() {
 
   const item = (id) => getItem(config, id);
   const wifiStyleName = WIFI_STYLES.find((s) => s[0] === config.wifiStyle)?.[1] || "WiFi 1";
-  const otherOn = ["headphone1", "vibrate1", "nfc1", "eyecare1", "alarm1", "bluetooth1"].filter((id) => item(id).on).length;
+  const otherOn = ["headphone1", "vibrate1", "nfc1", "eyecare1", "alarm1", "bluetooth1", "mute1", "speaker1", "gauge1", "nosim1"].filter((id) => item(id).on).length;
 
   const simCard = (n) => {
     const network = n === 1 ? config.sim1Network : config.sim2Network;
@@ -1641,9 +1831,9 @@ export default function Home() {
               <div className="field-pair">
                 <SelectField label="系统图标区域" value={config.iconSide} options={[["left", "左侧"], ["right", "右侧"]]} onChange={(v) => setConfig((c) => {
                   const items = { ...c.items };
-                  for (const [id, val] of Object.entries(items)) {
+                  for (const id of new Set([...Object.keys(items), ...Object.keys(DEFAULT_ITEMS)])) {
                     if (["notices"].includes(id)) continue;
-                    items[id] = { ...val, side: v };
+                    items[id] = { ...(items[id] || DEFAULT_ITEMS[id] || OFF_ITEM), side: v };
                   }
                   return { ...c, iconSide: v, items };
                 })} />
@@ -1690,6 +1880,7 @@ export default function Home() {
                 <ItemCard badge="▮" title="信号 6 · 四格直柱" item={item("signal6")} onPatch={(p) => patchItem("signal6", p)} onReset={() => resetItem("signal6")} />
                 <ItemCard badge="▨" title="信号 7 · 五格斜坡" item={item("signal7")} onPatch={(p) => patchItem("signal7", p)} onReset={() => resetItem("signal7")} />
                 <ItemCard badge="Vo" title="网络标志 2 · Vo / LTE 叠放" item={item("mark2")} onPatch={(p) => patchItem("mark2", p)} onReset={() => resetItem("mark2")} />
+                <ItemCard badge="HD" title="网络标志 5 · HD 双卡 1/2" item={item("mark5")} onPatch={(p) => patchItem("mark5", p)} onReset={() => resetItem("mark5")} />
                 <ItemCard badge="5G" title="网络标志 3 · 5G 文字" item={item("mark3")} onPatch={(p) => patchItem("mark3", p)} onReset={() => resetItem("mark3")} />
                 <ItemCard badge="◺" title="信号 8 · 参考圆三角形" item={item("signal8")} onPatch={(p) => patchItem("signal8", p)} onReset={() => resetItem("signal8")} />
                 <ItemCard badge="4G" title="网络标志 4 · 4G 文字" item={item("mark4")} onPatch={(p) => patchItem("mark4", p)} onReset={() => resetItem("mark4")} />
@@ -1746,11 +1937,15 @@ export default function Home() {
               <Range label="其他图标默认间距" value={config.otherGap} min={1} max={6} step={0.1} suffix="px" onChange={(v) => patch("otherGap", v)} />
               <div className="item-list">
                 <ItemCard badge="耳" title="耳机 1 · 标准" item={item("headphone1")} onPatch={(p) => patchItem("headphone1", p)} onReset={() => resetItem("headphone1")} />
-                <ItemCard badge="振" title="振动 1 · 标准" item={item("vibrate1")} onPatch={(p) => patchItem("vibrate1", p)} onReset={() => resetItem("vibrate1")} />
-                <ItemCard badge="N" title="NFC 1 · 标准" item={item("nfc1")} onPatch={(p) => patchItem("nfc1", p)} onReset={() => resetItem("nfc1")} />
-                <ItemCard badge="眼" title="护眼 1 · 参考截图" item={item("eyecare1")} onPatch={(p) => patchItem("eyecare1", p)} onReset={() => resetItem("eyecare1")} />
-                <ItemCard badge="钟" title="闹钟 1 · 标准" item={item("alarm1")} onPatch={(p) => patchItem("alarm1", p)} onReset={() => resetItem("alarm1")} />
+                <ItemCard badge="振" title="振动 1 · 手机波纹" item={item("vibrate1")} onPatch={(p) => patchItem("vibrate1", p)} onReset={() => resetItem("vibrate1")} />
+                <ItemCard badge="N" title="NFC 1 · 方框斜杠" item={item("nfc1")} onPatch={(p) => patchItem("nfc1", p)} onReset={() => resetItem("nfc1")} />
+                <ItemCard badge="眼" title="护眼 1 · 实心掏空瞳孔" item={item("eyecare1")} onPatch={(p) => patchItem("eyecare1", p)} onReset={() => resetItem("eyecare1")} />
+                <ItemCard badge="钟" title="闹钟 1 · 实心掏空指针" item={item("alarm1")} onPatch={(p) => patchItem("alarm1", p)} onReset={() => resetItem("alarm1")} />
                 <ItemCard badge="蓝" title="蓝牙 1 · 标准" item={item("bluetooth1")} onPatch={(p) => patchItem("bluetooth1", p)} onReset={() => resetItem("bluetooth1")} />
+                <ItemCard badge="静" title="静音 1 · 铃铛斜杠" item={item("mute1")} onPatch={(p) => patchItem("mute1", p)} onReset={() => resetItem("mute1")} />
+                <ItemCard badge="喇" title="静音 2 · 喇叭斜杠" item={item("speaker1")} onPatch={(p) => patchItem("speaker1", p)} onReset={() => resetItem("speaker1")} />
+                <ItemCard badge="表" title="性能 1 · 仪表指针" item={item("gauge1")} onPatch={(p) => patchItem("gauge1", p)} onReset={() => resetItem("gauge1")} />
+                <ItemCard badge="卡" title="无 SIM · 卡托感叹号" item={item("nosim1")} onPatch={(p) => patchItem("nosim1", p)} onReset={() => resetItem("nosim1")} />
               </div>
             </>}
 
