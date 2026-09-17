@@ -37,7 +37,10 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 
 .workspace { flex: 1 1 auto; width: 100%; max-width: 1460px; height: auto; min-height: 0; margin: 0 auto; display: grid; grid-template-columns: 150px minmax(340px, 430px) minmax(0, 1fr); overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: var(--glass); backdrop-filter: blur(28px) saturate(1.6); -webkit-backdrop-filter: blur(28px) saturate(1.6); box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, .7); }
 .rail { min-height: 0; height: 100%; overflow-y: auto; padding: 16px 10px; display: flex; flex-direction: column; gap: 4px; background: rgba(244, 248, 246, .55); border-right: 1px solid rgba(255, 255, 255, .6); scrollbar-width: thin; }
-.rail-title { padding: 2px 8px 8px; font-size: 10px; font-weight: 800; letter-spacing: .14em; color: #93a09c; }
+.rail-title { padding: 2px 8px 5px; font-size: 10px; font-weight: 800; letter-spacing: .14em; color: #93a09c; }
+.rail-group { display: grid; gap: 2px; }
+.rail-group + .rail-group { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(22, 52, 44, .08); }
+.rail-group-title { padding: 0 8px 4px; color: #9aa6a2; font-size: 9px; font-weight: 800; letter-spacing: .12em; }
 .rail button { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 11px; background: transparent; color: #66736f; font-size: 11px; font-weight: 700; text-align: left; transition: all .16s ease; }
 .rail button i { font-style: normal; flex: 0 0 auto; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 6px; background: rgba(22, 52, 44, .08); color: #7c8a86; font-size: 9px; font-weight: 800; }
 .rail button:hover { background: rgba(255, 255, 255, .7); }
@@ -242,8 +245,11 @@ input[type="range"]:active::-moz-range-thumb { transform: scale(1.2); }
   .top-header { margin-bottom: 10px; }
   .privacy-pill { display: none; }
   .workspace { flex: 0 0 auto; height: auto; min-height: 0; grid-template-columns: 1fr; overflow: visible; }
-  .rail { flex-direction: row; height: auto; overflow-x: auto; overflow-y: hidden; padding: 10px; border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, .6); }
+  .rail { flex-direction: row; align-items: stretch; height: auto; overflow-x: auto; overflow-y: hidden; padding: 10px; border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, .6); }
   .rail-title { display: none; }
+  .rail-group { flex: 0 0 auto; display: flex; align-items: center; gap: 3px; }
+  .rail-group + .rail-group { margin-top: 0; padding-top: 0; padding-left: 8px; border-top: 0; border-left: 1px solid rgba(22, 52, 44, .1); }
+  .rail-group-title { padding: 0 4px 0 2px; font-size: 8px; letter-spacing: .08em; writing-mode: vertical-rl; }
   .rail button { flex: 0 0 auto; }
   .control-panel { height: auto; border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, .55); }
   .controls-scroll { max-height: 520px; }

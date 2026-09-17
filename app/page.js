@@ -3,10 +3,30 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { IconLogo, IconUpload, NOTICE_ICONS, NAV_ICONS, NavPreview, BatteryPreview } from "./icons.js";
 
-const SECTIONS = [
-  ["upload", "上传截图"], ["device", "设备样式"], ["erase", "消除笔"], ["topbg", "状态栏背景"],
-  ["time", "时间"], ["signal", "信号"], ["wifi", "WiFi"], ["battery", "电池"],
-  ["other", "其他系统图标"], ["custom", "自定义图标"], ["bottom", "底部导航"], ["presets", "保存方案"],
+const NAV_GROUPS = [
+  {
+    id: "start",
+    label: "开始",
+    items: [["upload", "上传截图", "01"], ["device", "设备样式", "02"]],
+  },
+  {
+    id: "status",
+    label: "状态栏",
+    items: [
+      ["topbg", "状态栏背景", "03"], ["time", "时间", "04"], ["signal", "信号", "05"],
+      ["wifi", "WiFi", "06"], ["battery", "电池", "07"], ["other", "其他图标", "08"], ["custom", "自定义图标", "09"],
+    ],
+  },
+  {
+    id: "navigation",
+    label: "底部导航",
+    items: [["bottom", "底部导航", "10"]],
+  },
+  {
+    id: "tools",
+    label: "工具与方案",
+    items: [["erase", "消除笔", "11"], ["presets", "保存方案", "12"]],
+  },
 ];
 
 const OFF_ITEM = { on: false, side: "right", size: 100, dx: 0, dy: 0 };
@@ -112,6 +132,43 @@ const DEVICE_PATCH = {
   oneui: { signalShape: 6, wifiStyle: 4, batteryType: 1, bottomStyle: "samsung" },
   pixel: { signalShape: 6, wifiStyle: 3, batteryType: 7, bottomStyle: "gestureThin" },
 };
+
+// System icons are not interchangeable between platforms. These metrics keep
+// the same logical controls while preserving each platform's optical rhythm.
+const DEVICE_METRICS = {
+  original: {
+    top: { iconScale: 1, groupGap: 6, sideMargin: 8, centerOffset: 0.5, textScale: 1 },
+    bottom: { iconScale: 1, y: 0.49, stroke: 1.7 },
+  },
+  ios: {
+    top: { iconScale: 0.96, groupGap: 5.3, sideMargin: 8.5, centerOffset: 0.35, textScale: 0.98 },
+    bottom: { iconScale: 0.96, y: 0.72, stroke: 1.7 },
+  },
+  pixel: {
+    top: { iconScale: 0.94, groupGap: 5.6, sideMargin: 8.5, centerOffset: 0.25, textScale: 0.96 },
+    bottom: { iconScale: 0.98, y: 0.49, stroke: 1.55 },
+  },
+  harmony: {
+    top: { iconScale: 1.03, groupGap: 5.8, sideMargin: 7.5, centerOffset: 0.65, textScale: 1 },
+    bottom: { iconScale: 1.03, y: 0.5, stroke: 1.85 },
+  },
+  hyperos: {
+    top: { iconScale: 1.02, groupGap: 5.6, sideMargin: 7.5, centerOffset: 0.45, textScale: 1 },
+    bottom: { iconScale: 1.04, y: 0.5, stroke: 1.75 },
+  },
+  origin: {
+    top: { iconScale: 0.98, groupGap: 5.9, sideMargin: 8, centerOffset: 0.45, textScale: 0.98 },
+    bottom: { iconScale: 1.02, y: 0.5, stroke: 1.7 },
+  },
+  oneui: {
+    top: { iconScale: 1.04, groupGap: 5.2, sideMargin: 7.5, centerOffset: 0.55, textScale: 1.02 },
+    bottom: { iconScale: 1.04, y: 0.5, stroke: 1.8 },
+  },
+};
+
+function getDeviceMetrics(deviceType) {
+  return DEVICE_METRICS[deviceType] || DEVICE_METRICS.original;
+}
 
 const BATTERY_TYPES = [
   [1, "电池 1", "Samsung · 数字回圈"],
@@ -1109,8 +1166,9 @@ function getItem(c, id) {
 }
 
 function buildTopElements(ctx, w, c, customImages) {
+  const metrics = getDeviceMetrics(c.deviceType);
   const base = Math.max(0.62, w / 390);
-  const gs = base * Math.max(0.6, Math.min(1.6, c.iconScale / 100)) * 1.35;
+  const gs = base * Math.max(0.6, Math.min(1.6, c.iconScale / 100)) * 1.35 * metrics.top.iconScale;
   const els = [];
   const wifiFirst = c.wifiSimOrder === "wifiFirst";
   const wifiOrder = wifiFirst ? 26 : 44;
@@ -1231,11 +1289,12 @@ function buildTopElements(ctx, w, c, customImages) {
 
 function drawTop(ctx, img, w, h, c, customImages) {
   const th = h * c.topHeight / 100;
-  const scale = Math.max(0.62, w / 390);
+  const metrics = getDeviceMetrics(c.deviceType);
+  const scale = Math.max(0.62, w / 390) * metrics.top.textScale;
   coverRegion(ctx, img, 0, 0, w, th, c.topStyle, c.topColor, c.topOpacity);
-  const cy = th / 2 + 0.5 * scale;
-  const gap = 6 * scale;
-  const margin = 8 * scale;
+  const cy = th / 2 + metrics.top.centerOffset * scale;
+  const gap = metrics.top.groupGap * scale;
+  const margin = metrics.top.sideMargin * scale;
 
   const weight = Math.max(100, Math.min(900, c.timeWeight));
   const timeFont = `${weight} ${18 * scale * (c.timeSize / 100)}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
@@ -1285,78 +1344,110 @@ function drawTop(ctx, img, w, h, c, customImages) {
 }
 
 const NAV_PATH_DATA = {
-  home: ["M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z", "M9 22V12h6v10"],
-  search: ["M18.5 11a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0z", "M21 21l-4.65-4.65"],
+  home: ["M12 3.5 4.2 9.3v9.5a1.8 1.8 0 0 0 1.8 1.8h12a1.8 1.8 0 0 0 1.8-1.8V9.3z", "M9.2 20.6v-7.4h5.6v7.4"],
+  search: ["M18.2 10.8a7.2 7.2 0 1 1-14.4 0 7.2 7.2 0 0 1 14.4 0z", "M20.8 20.8l-4.5-4.5"],
   plus: ["M12 5v14", "M5 12h14"],
-  user: ["M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2", "M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0z"],
-  chat: ["M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5z"],
-  phone: ["M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"],
-  camera: ["M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z", "M16 13a4 4 0 1 1-8 0 4 4 0 0 1 8 0z"],
+  user: ["M20.5 20.8v-1.4a4.3 4.3 0 0 0-4.3-4.3H7.8a4.3 4.3 0 0 0-4.3 4.3v1.4", "M16.3 7.4a4.3 4.3 0 1 1-8.6 0 4.3 4.3 0 0 1 8.6 0z"],
+  chat: ["M20.6 11.5a8.3 8.3 0 0 1-8.3 8.3 8.5 8.5 0 0 1-3.5-.8L4 20.6l1.6-4.8a8.3 8.3 0 1 1 15-4.3z"],
+  phone: ["M20.4 15.8v3a1.8 1.8 0 0 1-2 1.8 18.8 18.8 0 0 1-8.4-3 18.4 18.4 0 0 1-5.8-5.8 18.8 18.8 0 0 1-3-8.4 1.8 1.8 0 0 1 1.8-2h3a1.8 1.8 0 0 1 1.8 1.6c.1.9.3 1.8.7 2.6a1.8 1.8 0 0 1-.4 1.9L7 8.8a15.1 15.1 0 0 0 5.7 5.7l1.3-1.3a1.8 1.8 0 0 1 1.9-.4c.8.4 1.7.6 2.6.7a1.8 1.8 0 0 1 1.9 2.3z"],
+  camera: ["M20.8 19.8H3.2a2 2 0 0 1-2-2V8.4a2 2 0 0 1 2-2h3.5l1.6-2.7h5.8l1.6 2.7h3.5a2 2 0 0 1 2 2v9.4a2 2 0 0 1-2 2z", "M16 13.1a4 4 0 1 1-8 0 4 4 0 0 1 8 0z"],
   heart: ["M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21.2l7.8-7.7 1.1-1.1a5.5 5.5 0 0 0 0-7.8z"],
+};
+
+const NAV_RENDER_METRICS = {
+  original: { stroke: 1.7, scale: 1, cap: "round", join: "round" },
+  ios: { stroke: 1.65, scale: 0.96, cap: "round", join: "round" },
+  pixel: { stroke: 1.55, scale: 0.98, cap: "round", join: "round" },
+  harmony: { stroke: 1.85, scale: 1.02, cap: "round", join: "round" },
+  hyperos: { stroke: 1.75, scale: 1.02, cap: "round", join: "round" },
+  origin: { stroke: 1.7, scale: 1, cap: "round", join: "round" },
+  oneui: { stroke: 1.8, scale: 1.03, cap: "round", join: "round" },
+};
+
+const NAV_KEY_METRICS = {
+  android: { stroke: 1.65, back: 5.5, home: 5.8, recent: 5.5 },
+  threeLeft: { stroke: 1.7, back: 5.5, home: 6, recent: 5.5 },
+  threeRight: { stroke: 1.7, back: 5.5, home: 6, recent: 5.5 },
+  samsung: { stroke: 1.55, back: 5.2, home: 5.8, recent: 5.4 },
+  vivo: { stroke: 1.65, back: 5.4, home: 6, recent: 5.4 },
+  xiaomi: { stroke: 1.8, back: 5.7, home: 5.8, recent: 5.2 },
+  huawei: { stroke: 1.85, back: 5.8, home: 5.8, recent: 5.5 },
 };
 
 let navPathCache = null;
 
-function drawNavIcon(ctx, type, x, y, size, color) {
+function drawNavIcon(ctx, type, x, y, size, color, deviceType = "original") {
   if (!navPathCache) {
     navPathCache = Object.fromEntries(
       Object.entries(NAV_PATH_DATA).map(([key, arr]) => [key, arr.map((d) => new Path2D(d))])
     );
   }
   const paths = navPathCache[type] || navPathCache.home;
-  const g = size / 24;
+  const metrics = NAV_RENDER_METRICS[deviceType] || NAV_RENDER_METRICS.original;
+  const g = size / 24 * metrics.scale;
   ctx.save();
   ctx.translate(x - 12 * g, y - 12 * g);
   ctx.scale(g, g);
   ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
+  ctx.lineWidth = metrics.stroke;
+  ctx.lineCap = metrics.cap;
+  ctx.lineJoin = metrics.join;
   for (const path of paths) ctx.stroke(path);
   ctx.restore();
 }
 
 function drawThreeKeys(ctx, style, w, cy, scale, color) {
+  const metrics = NAV_KEY_METRICS[style] || NAV_KEY_METRICS.android;
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-  ctx.lineWidth = 1.7 * scale;
+  ctx.lineWidth = metrics.stroke * scale;
   const back = (x, dir) => {
     ctx.beginPath();
-    ctx.moveTo(x + 5.5 * scale * dir, cy - 6 * scale);
-    ctx.lineTo(x - 5.5 * scale * dir, cy);
-    ctx.lineTo(x + 5.5 * scale * dir, cy + 6 * scale);
-    if (style === "huawei") ctx.closePath();
-    ctx.stroke();
+    ctx.moveTo(x + metrics.back * scale * dir, cy - metrics.back * scale);
+    ctx.lineTo(x - metrics.back * scale * dir, cy);
+    ctx.lineTo(x + metrics.back * scale * dir, cy + metrics.back * scale);
+    if (style === "android") {
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      if (style === "huawei") ctx.closePath();
+      ctx.stroke();
+    }
   };
   const recent = (x) => {
     if (style === "samsung") {
       ctx.beginPath();
-      ctx.moveTo(x, cy - 6 * scale);
-      ctx.lineTo(x, cy + 6 * scale);
+      ctx.moveTo(x - 3 * scale, cy - 4.5 * scale);
+      ctx.lineTo(x - 3 * scale, cy + 4.5 * scale);
+      ctx.moveTo(x, cy - 4.5 * scale);
+      ctx.lineTo(x, cy + 4.5 * scale);
+      ctx.moveTo(x + 3 * scale, cy - 4.5 * scale);
+      ctx.lineTo(x + 3 * scale, cy + 4.5 * scale);
       ctx.stroke();
     } else if (style === "xiaomi") {
-      roundedRect(ctx, x - 5.5 * scale, cy - 5.5 * scale, 11 * scale, 11 * scale, 1.5 * scale);
+      roundedRect(ctx, x - metrics.recent * scale, cy - metrics.recent * scale, metrics.recent * 2 * scale, metrics.recent * 2 * scale, 1.5 * scale);
       ctx.stroke();
     } else if (style === "huawei") {
-      roundedRect(ctx, x - 5.5 * scale, cy - 5.5 * scale, 11 * scale, 11 * scale, 1.8 * scale);
+      roundedRect(ctx, x - metrics.recent * scale, cy - metrics.recent * scale, metrics.recent * 2 * scale, metrics.recent * 2 * scale, 1.8 * scale);
       ctx.stroke();
     } else {
-      ctx.strokeRect(x - 5.5 * scale, cy - 5.5 * scale, 11 * scale, 11 * scale);
+      ctx.strokeRect(x - metrics.recent * scale, cy - metrics.recent * scale, metrics.recent * 2 * scale, metrics.recent * 2 * scale);
     }
+  };
+  const home = (x) => {
+    ctx.beginPath();
+    ctx.arc(x, cy, metrics.home * scale, 0, Math.PI * 2);
+    ctx.stroke();
   };
   if (style === "threeRight") {
     recent(w * .27);
-    ctx.beginPath();
-    ctx.arc(w * .5, cy, 6 * scale, 0, Math.PI * 2);
-    ctx.stroke();
+    home(w * .5);
     back(w * .73, -1);
   } else {
     back(w * .27, 1);
-    ctx.beginPath();
-    ctx.arc(w * .5, cy, 6 * scale, 0, Math.PI * 2);
-    ctx.stroke();
+    home(w * .5);
     recent(w * .73);
   }
 }
@@ -1367,7 +1458,7 @@ function drawBrandNavigation(ctx, style, w, y, bh, scale, color) {
   ctx.fillStyle = color;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-  ctx.lineWidth = 1.7 * scale;
+  ctx.lineWidth = (NAV_KEY_METRICS[style]?.stroke || 1.7) * scale;
   if (style === "vivo") {
     const left = w * .27;
     [-4, 0, 4].forEach((offset) => {
@@ -1392,15 +1483,23 @@ function drawBrandNavigation(ctx, style, w, y, bh, scale, color) {
 function drawBottom(ctx, img, w, h, c) {
   const bh = h * c.bottomHeight / 100;
   const y = h - bh;
+  const styleDevice = {
+    samsung: "oneui",
+    vivo: "origin",
+    xiaomi: "hyperos",
+    huawei: "harmony",
+  }[c.bottomStyle];
+  const navDeviceType = c.deviceType !== "original" ? c.deviceType : (styleDevice || "original");
+  const metrics = getDeviceMetrics(navDeviceType);
   const scale = Math.max(0.62, w / 390);
   coverRegion(ctx, img, 0, y, w, bh, c.bottomCover, c.bottomColor, c.bottomOpacity);
   const color = c.bottomIconColor;
-  const navScale = Math.max(0.6, Math.min(1.6, (c.navIconScale || 100) / 100));
+  const navScale = Math.max(0.6, Math.min(1.6, (c.navIconScale || 100) / 100)) * metrics.bottom.iconScale;
   if (c.bottomStyle === "gesture" || c.bottomStyle === "gestureThin") {
     ctx.fillStyle = color;
     ctx.globalAlpha = 0.92;
     const barH = c.bottomStyle === "gestureThin" ? Math.max(1.6 * scale, bh * 0.04) : Math.max(3 * scale, bh * 0.085);
-    roundedRect(ctx, w * 0.34, y + bh * 0.72, w * 0.32, barH, 999);
+    roundedRect(ctx, w * 0.34, y + bh * metrics.bottom.y, w * 0.32, barH, 999);
     ctx.fill();
     ctx.globalAlpha = 1;
   } else if (["android", "threeLeft", "threeRight", "samsung", "vivo", "xiaomi", "huawei"].includes(c.bottomStyle)) {
@@ -1419,24 +1518,39 @@ function drawBottom(ctx, img, w, h, c) {
     const cy = y + bh * .49;
     for (let i = 0; i < count; i += 1) {
       const x = count === 1 ? w / 2 : left + (right - left) * i / (count - 1);
-      drawNavIcon(ctx, c.navIcons[i], x, cy, Math.min(25 * scale, bh * .38) * navScale, color);
+      drawNavIcon(ctx, c.navIcons[i], x, cy, Math.min(25 * scale, bh * .38) * navScale, color, navDeviceType);
     }
   }
 }
 
 function renderCanvas(canvas, img, config, strokes = [], customImages = {}, originalOnly = false) {
   if (!canvas || !img) return;
-  canvas.width = img.naturalWidth;
-  canvas.height = img.naturalHeight;
-  const ctx = canvas.getContext("2d", { alpha: false });
+  const outputWidth = img.naturalWidth;
+  const outputHeight = img.naturalHeight;
+  canvas.width = outputWidth;
+  canvas.height = outputHeight;
+  const outputCtx = canvas.getContext("2d", { alpha: false });
+  outputCtx.imageSmoothingEnabled = true;
+  outputCtx.imageSmoothingQuality = "high";
+
+  // Render small system glyphs larger than the final image, then downsample.
+  // This preserves 1:1 export dimensions while producing cleaner curves.
+  const maxDimension = Math.max(outputWidth, outputHeight);
+  const oversample = Math.min(2, Math.max(1, 2000 / maxDimension));
+  const working = document.createElement("canvas");
+  working.width = Math.round(outputWidth * oversample);
+  working.height = Math.round(outputHeight * oversample);
+  const ctx = working.getContext("2d", { alpha: false });
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(img, 0, 0);
+  ctx.scale(oversample, oversample);
+  ctx.drawImage(img, 0, 0, outputWidth, outputHeight);
   if (!originalOnly) {
-    drawEraseStrokes(ctx, strokes, canvas.width, canvas.height, config);
-    drawTop(ctx, img, canvas.width, canvas.height, config, customImages);
-    drawBottom(ctx, img, canvas.width, canvas.height, config);
+    drawEraseStrokes(ctx, strokes, outputWidth, outputHeight, config);
+    drawTop(ctx, img, outputWidth, outputHeight, config, customImages);
+    drawBottom(ctx, img, outputWidth, outputHeight, config);
   }
+  outputCtx.drawImage(working, 0, 0, working.width, working.height, 0, 0, outputWidth, outputHeight);
 }
 
 function Range({ label, value, min, max, step = 1, suffix = "", onChange }) {
@@ -1547,7 +1661,14 @@ export default function Home() {
   }, [image, config, eraseStrokes, customImages, originalOnly]);
 
   const openFile = useCallback((file) => {
-    if (!file || !file.type.startsWith("image/")) return;
+    const fileName = file?.name || "";
+    const fileType = file?.type || "";
+    const isImage = fileType.startsWith("image/") || /\.(png|jpe?g|webp)$/i.test(fileName);
+    if (!file || !isImage) {
+      window.alert("请选择 PNG、JPG、JPEG 或 WebP 图片。");
+      return;
+    }
+
     const url = URL.createObjectURL(file);
     const next = new Image();
     next.onload = () => {
@@ -1555,9 +1676,13 @@ export default function Home() {
         if (prev?.src?.startsWith("blob:")) URL.revokeObjectURL(prev.src);
         return next;
       });
-      setFileName(file.name.replace(/\.[^.]+$/, ""));
+      setFileName(fileName.replace(/\.[^.]+$/, ""));
       setEraseStrokes([]);
       setEraseMode("off");
+    };
+    next.onerror = () => {
+      URL.revokeObjectURL(url);
+      window.alert("图片读取失败，请换一张 PNG、JPG、JPEG 或 WebP 图片重试。");
     };
     next.src = url;
   }, []);
@@ -1725,11 +1850,16 @@ export default function Home() {
 
       <section className="workspace">
         <nav className="rail">
-          <span className="rail-title">功能项目</span>
-          {SECTIONS.map(([id, label], i) => (
-            <button key={id} className={section === id ? "active" : ""} onClick={() => setSection(id)}>
-              <i>{String(i + 1).padStart(2, "0")}</i>{label}
-            </button>
+          <span className="rail-title">编辑流程</span>
+          {NAV_GROUPS.map((group) => (
+            <div className="rail-group" key={group.id}>
+              <span className="rail-group-title">{group.label}</span>
+              {group.items.map(([id, label, number]) => (
+                <button key={id} className={section === id ? "active" : ""} aria-current={section === id ? "page" : undefined} onClick={() => setSection(id)}>
+                  <i>{number}</i>{label}
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
 
@@ -1740,8 +1870,8 @@ export default function Home() {
               <strong>{fileName || "尚未选择图片"}</strong>
               <small>原图自适应 · {image ? sizeText : "等待上传"}</small>
             </div>
-            <button className="secondary" onClick={() => fileRef.current?.click()}>{image ? "更换" : "上传"}</button>
-            <input ref={fileRef} hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => openFile(e.target.files?.[0])} />
+            <button type="button" className="secondary" onClick={() => fileRef.current?.click()}>{image ? "更换" : "上传"}</button>
+            <input ref={fileRef} hidden type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" onClick={(e) => { e.currentTarget.value = ""; }} onChange={(e) => openFile(e.target.files?.[0])} />
           </div>
 
           <div className="device-row">
@@ -1758,7 +1888,7 @@ export default function Home() {
           <div className="controls-scroll">
             {section === "upload" && <>
               <SectionTitle em="IMAGE">上传原图</SectionTitle>
-              <button className="drop-card" onClick={() => fileRef.current?.click()}>
+              <button type="button" className="drop-card" onClick={() => fileRef.current?.click()}>
                 <span className="drop-icon"><IconUpload size={20} /></span>
                 <strong>选择截图文件</strong>
                 <small>保留原始像素尺寸与完整画面，仅在预览区等比例缩小显示</small>
