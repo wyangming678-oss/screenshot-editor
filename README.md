@@ -19,4 +19,26 @@ npm install
 npm run dev
 ```
 
-浏览器打开 `http://localhost:3000`。
+浏览器打开终端里提示的本地地址即可。
+
+## 构建
+
+项目使用 [vinext](https://github.com/cloudflare/vinext) 做纯静态导出，构建产物在 `dist/`：
+
+```bash
+npm ci
+npm run build
+```
+
+## 部署到 GitHub Pages
+
+仓库内置工作流 `.github/workflows/deploy.yml`，推到 `main` 分支后会自动构建并发布到 GitHub Pages。
+
+首次使用需在仓库 Settings → Pages → Build and deployment 里把 **Source** 设为 **GitHub Actions**（工作流中的 `configure-pages` 也会尝试自动开启）。
+
+访问地址：
+
+- 用户/组织主页仓库（仓库名为 `<用户名>.github.io`）：`https://<用户名>.github.io/`
+- 普通项目仓库：`https://<用户名>.github.io/<仓库名>/`
+
+`next.config.mjs` 会根据 `GITHUB_REPOSITORY` 自动设置 `basePath`，因此项目仓库也能正确加载静态资源；本地构建时不加前缀。

@@ -47,8 +47,11 @@ const DEFAULT_ITEMS = {
   battery: { on: true, side: "right", size: 100, dx: 0, dy: 0 },
   headphone1: { on: true, side: "right", size: 100, dx: 0, dy: 0 },
   vibrate1: { ...OFF_ITEM }, nfc1: { ...OFF_ITEM }, eyecare1: { ...OFF_ITEM },
-  alarm1: { ...OFF_ITEM }, bluetooth1: { ...OFF_ITEM },
-  mute1: { ...OFF_ITEM }, speaker1: { ...OFF_ITEM }, gauge1: { ...OFF_ITEM }, nosim1: { ...OFF_ITEM },
+  alarm1: { ...OFF_ITEM }, alarm2: { ...OFF_ITEM }, alarm3: { ...OFF_ITEM }, alarm4: { ...OFF_ITEM }, alarm5: { ...OFF_ITEM },
+  bluetooth1: { ...OFF_ITEM }, bluetooth2: { ...OFF_ITEM }, bluetooth3: { ...OFF_ITEM }, bluetooth4: { ...OFF_ITEM },
+  mute1: { ...OFF_ITEM }, mute2: { ...OFF_ITEM }, speaker1: { ...OFF_ITEM }, gauge1: { ...OFF_ITEM }, nosim1: { ...OFF_ITEM },
+  speedIcon1: { ...OFF_ITEM }, speedIcon2: { ...OFF_ITEM }, speedIcon3: { ...OFF_ITEM }, speedIcon4: { ...OFF_ITEM },
+  dualsim1: { ...OFF_ITEM }, dualsim2: { ...OFF_ITEM }, dualsim3: { ...OFF_ITEM },
 };
 
 const DEFAULT_CONFIG = {
@@ -73,7 +76,7 @@ const DEFAULT_CONFIG = {
   showCarrier: false,
   simCount: 1,
   signalShape: 1,
-  wifiSimOrder: "wifiFirst",
+  wifiSimOrder: "simFirst",
   signalBarGap: 3.2,
   signalLineGap: 1.6,
   signalLineWidth: 3.4,
@@ -116,21 +119,25 @@ const DEFAULT_CONFIG = {
 
 const DEVICE_PRESETS = [
   ["original", "原图模式（推荐）", "不改动任何参数，仅保留原图尺寸与画面"],
-  ["ios", "Apple iOS", "细信号柱 + 弧线 WiFi + 圆角框电池 + 手势横条"],
-  ["harmony", "华为 HarmonyOS", "粗柱信号 + 填充扇形 WiFi + 灰框电池 + 华为三键"],
-  ["hyperos", "小米 HyperOS", "四格直柱信号 + 实心电池 + 小米三键"],
-  ["origin", "vivo OriginOS", "细柱信号 + 紧凑电池 + vivo 三键"],
-  ["oneui", "Samsung One UI", "直柱信号 + 数字回圈电池 + Samsung 三键"],
-  ["pixel", "Google Pixel", "四格直柱 + 三角 WiFi + 紧凑电池 + 手势细线"],
+  ["ios", "苹果 iPhone", "细信号柱 + 弧线 WiFi + 圆角框电池（不显示百分比）+ 手势横条"],
+  ["oneui", "三星 One UI", "斜切信号柱 + 弧线 WiFi + 数字回圈电池 + 三星三键"],
+  ["harmony", "华为 HarmonyOS", "粗柱信号 + 填充扇形 WiFi + 框内数字电池 + 华为三键"],
+  ["hyperos", "小米 HyperOS", "四格直柱信号 + 填充扇形 WiFi + 实心电池 + 小米三键"],
+  ["origin", "vivo OriginOS", "细柱信号 + 弧线 WiFi + 紧凑电池 + vivo 三键"],
+  ["oppo", "OPPO ColorOS", "四格直柱信号 + 弧线 WiFi + 实心分体掏空数字电池"],
+  ["motorola", "摩托罗拉", "粗柱信号 + 弧线 WiFi + 竖向实心电池 + 手势细线"],
+  ["pixel", "谷歌 Pixel", "四格直柱 + 三角 WiFi + 紧凑电池 + 手势细线"],
 ];
 
 const DEVICE_PATCH = {
-  ios: { signalShape: 1, wifiStyle: 1, batteryType: 4, bottomStyle: "gesture", timeWeight: 600 },
+  ios: { signalShape: 2, wifiStyle: 1, batteryType: 4, bottomStyle: "gesture", timeWeight: 600, batteryNumber: false, batteryInnerColor: "icon" },
+  oneui: { signalShape: 5, wifiStyle: 1, batteryType: 1, bottomStyle: "samsung", batteryNumber: false },
   harmony: { signalShape: 1, wifiStyle: 2, batteryType: 2, bottomStyle: "huawei" },
   hyperos: { signalShape: 6, wifiStyle: 2, batteryType: 5, bottomStyle: "xiaomi" },
   origin: { signalShape: 2, wifiStyle: 1, batteryType: 7, bottomStyle: "vivo" },
-  oneui: { signalShape: 6, wifiStyle: 4, batteryType: 1, bottomStyle: "samsung" },
-  pixel: { signalShape: 6, wifiStyle: 3, batteryType: 7, bottomStyle: "gestureThin" },
+  oppo: { signalShape: 6, wifiStyle: 1, batteryType: 6, bottomStyle: "gesture", batteryNumber: false },
+  motorola: { signalShape: 1, wifiStyle: 1, batteryType: 8, bottomStyle: "gestureThin" },
+  pixel: { signalShape: 6, wifiStyle: 3, batteryType: 7, bottomStyle: "gestureThin", batteryNumber: false, batteryInnerColor: "icon" },
 };
 
 // System icons are not interchangeable between platforms. These metrics keep
@@ -164,6 +171,14 @@ const DEVICE_METRICS = {
     top: { iconScale: 1.04, groupGap: 5.2, sideMargin: 7.5, centerOffset: 0.55, textScale: 1.02 },
     bottom: { iconScale: 1.04, y: 0.5, stroke: 1.8 },
   },
+  oppo: {
+    top: { iconScale: 1, groupGap: 5.8, sideMargin: 8, centerOffset: 0.45, textScale: 1 },
+    bottom: { iconScale: 1, y: 0.49, stroke: 1.7 },
+  },
+  motorola: {
+    top: { iconScale: 1.02, groupGap: 6, sideMargin: 8, centerOffset: 0.5, textScale: 1 },
+    bottom: { iconScale: 1, y: 0.49, stroke: 1.7 },
+  },
 };
 
 function getDeviceMetrics(deviceType) {
@@ -184,14 +199,15 @@ const BATTERY_TYPES = [
 ];
 
 const SIGNAL_SHAPES = [
-  [1, "信号 1 · 粗柱"], [2, "信号 2 · 细柱"], [3, "信号 3 · 点阵"], [4, "信号 4 · 弧形"],
-  [5, "信号 5 · 斜切柱"], [6, "信号 6 · 四格直柱"], [7, "信号 7 · 五格斜坡"], [8, "信号 8 · 参考圆三角形"],
+  [1, "信号 1 · 七格圆头"], [2, "信号 2 · 四格圆头柱"], [3, "信号 3 · 四格直角柱"], [4, "信号 4 · 五格圆头柱"],
+  [5, "信号 5 · 四格细柱"], [6, "信号 6 · 四格宽柱"], [7, "信号 7 · 四格大柱"], [8, "信号 8 · 七格粗柱"],
+  [9, "信号 9 · 五格细柱"], [10, "信号 10 · 四格圆头"],
 ];
 
 const WIFI_STYLES = [
-  [1, "WiFi 1 · 安卓标准粗弧"], [2, "WiFi 2 · 填充扇形"], [3, "WiFi 3 · 填充三角"],
-  [4, "WiFi 4 · 空心扇面"], [5, "WiFi 5 · 双色粗弧"], [6, "WiFi 6 · 四弧"],
-  [7, "WiFi 7 · 加号增强"], [8, "WiFi 8 · 实心扇掏空箭头"],
+  [1, "WiFi 1 · 标准粗弧"], [2, "WiFi 2 · 大弧线"], [3, "WiFi 3 · 超粗弧线"], [4, "WiFi 4 · 紧凑弧"],
+  [5, "WiFi 5 · 细线弧"], [6, "WiFi 6 · 加粗弧"], [7, "WiFi 7 · 标准弧"], [8, "WiFi 8 · 细紧弧"],
+  [9, "WiFi 9 · 极细弧"], [10, "WiFi 10 · 标准弧"],
 ];
 
 const NETWORK_OPTIONS = ["5G+", "5G", "4G+", "4G", "LTE", "H+", "3G", "E", "隐藏"];
@@ -273,82 +289,43 @@ function textWidth(ctx, text, font) {
 
 const sysFont = (px) => `700 ${px}px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif`;
 
+const SIGNAL_STYLE = {
+  1: { n: 7, bw: 0.19, gap: 0.075, h: [0.32, 0.31, 0.34, 0.43, 0.55, 0.76, 1], pill: true },
+  2: { n: 4, bw: 0.23, gap: 0.11, h: [0.41, 0.5, 0.76, 1], pill: true },
+  3: { n: 4, bw: 0.23, gap: 0.11, h: [0.41, 0.51, 0.76, 1], pill: false },
+  4: { n: 5, bw: 0.2, gap: 0.07, h: [0.34, 0.45, 0.58, 0.8, 1], pill: true },
+  5: { n: 4, bw: 0.18, gap: 0.11, h: [0.4, 0.51, 0.77, 1], pill: false },
+  6: { n: 4, bw: 0.25, gap: 0.14, h: [0.42, 0.53, 0.74, 1], pill: false },
+  7: { n: 4, bw: 0.32, gap: 0.09, h: [0.42, 0.58, 0.78, 1], pill: true },
+  8: { n: 7, bw: 0.19, gap: 0.05, h: [0.29, 0.3, 0.32, 0.44, 0.54, 0.76, 1], pill: true },
+  9: { n: 5, bw: 0.19, gap: 0.04, h: [0.32, 0.44, 0.54, 0.76, 1], pill: false },
+  10: { n: 4, bw: 0.23, gap: 0.13, h: [0.4, 0.53, 0.75, 1], pill: true },
+};
+const SIGNAL_H = 11;
+const SIGNAL_BOTTOM = 4.6;
+
 function signalShapeWidth(ctx, shape, s, c) {
-  if (shape === 8) return 13 * s;
-  if (shape === 4) return 12 * s;
-  const cols = shape === 7 ? 5 : 4;
-  const bw = shape === 2 ? c.signalLineWidth * 0.7 : c.signalLineWidth;
-  return cols * bw * s + (cols - 1) * c.signalBarGap * s;
+  const sp = SIGNAL_STYLE[shape] || SIGNAL_STYLE[1];
+  const bw = sp.bw * SIGNAL_H * s * (c.signalLineWidth / 3.4);
+  const gap = (sp.gap * SIGNAL_H + c.signalLineGap * 0.5) * s * (c.signalBarGap / 3.2);
+  return sp.n * bw + (sp.n - 1) * gap;
 }
 
 function drawSignalShape(ctx, x, cy, s, bars, color, shape, c) {
-  const bottom = cy + 5 * s;
-  const gap = c.signalBarGap * s;
-  const lw = c.signalLineWidth * s;
-  const round = c.signalCap === "round";
+  const sp = SIGNAL_STYLE[shape] || SIGNAL_STYLE[1];
+  const bottom = cy + SIGNAL_BOTTOM * s;
+  const bw = sp.bw * SIGNAL_H * s * (c.signalLineWidth / 3.4);
+  const gap = (sp.gap * SIGNAL_H + c.signalLineGap * 0.5) * s * (c.signalBarGap / 3.2);
+  const lit = Math.max(0, Math.min(sp.n, Math.round(bars * sp.n / 4)));
   ctx.save();
   ctx.fillStyle = color;
-  ctx.strokeStyle = color;
-  ctx.lineCap = "round";
-  if (shape === 8) {
-    ctx.globalAlpha = bars > 0 ? 1 : 0.28;
-    ctx.beginPath();
-    ctx.moveTo(x, bottom);
-    ctx.lineTo(x + 13 * s, bottom);
-    ctx.lineTo(x + 13 * s, bottom - 10 * s);
-    ctx.closePath();
+  ctx.globalAlpha = 1;
+  const rad = sp.pill ? bw / 2 : (c.signalCap === "round" ? bw * 0.35 : 0);
+  for (let i = 0; i < sp.n; i += 1) {
+    ctx.globalAlpha = i < lit ? 1 : 0.26;
+    const bh = sp.h[i] * SIGNAL_H * s;
+    roundedRect(ctx, x + i * (bw + gap), bottom - bh, bw, bh, rad);
     ctx.fill();
-    ctx.restore();
-    return;
-  }
-  if (shape === 4) {
-    ctx.lineWidth = lw * 0.8;
-    for (let i = 0; i < 4; i += 1) {
-      ctx.globalAlpha = i < bars ? 1 : 0.26;
-      ctx.beginPath();
-      ctx.arc(x + 1 * s, bottom, (2.6 + i * (2.3 + c.signalLineGap * 0.5)) * s, -Math.PI / 2, 0);
-      ctx.stroke();
-    }
-    ctx.restore();
-    return;
-  }
-  if (shape === 3) {
-    const r = lw * 0.48;
-    for (let i = 0; i < 4; i += 1) {
-      const dots = i + 1;
-      for (let d = 0; d < dots; d += 1) {
-        ctx.globalAlpha = i < bars ? 1 : 0.26;
-        ctx.beginPath();
-        ctx.arc(x + r + i * (r * 2 + gap), bottom - r - d * (r * 2 + c.signalLineGap * s), r, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-    ctx.restore();
-    return;
-  }
-  const cols = shape === 7 ? 5 : 4;
-  const bw = shape === 2 ? lw * 0.7 : lw;
-  for (let i = 0; i < cols; i += 1) {
-    const active = i < Math.round(bars * cols / 4);
-    ctx.globalAlpha = active ? 1 : 0.26;
-    let bh;
-    if (shape === 6) bh = (3.5 + i * 2.4) * s;
-    else if (shape === 7) bh = (2.4 + i * 2.0) * s;
-    else bh = (3.3 + i * 2.25) * s;
-    const bx = x + i * (bw + gap);
-    if (shape === 5) {
-      const slant = (c.signalLineGap + 1) * s;
-      ctx.beginPath();
-      ctx.moveTo(bx, bottom);
-      ctx.lineTo(bx, bottom - bh + slant);
-      ctx.lineTo(bx + bw, bottom - bh);
-      ctx.lineTo(bx + bw, bottom);
-      ctx.closePath();
-      ctx.fill();
-    } else {
-      roundedRect(ctx, bx, bottom - bh, bw, bh, round ? bw / 2 : 0.6 * s);
-      ctx.fill();
-    }
   }
   ctx.globalAlpha = 1;
   ctx.restore();
@@ -469,103 +446,40 @@ function markWidth(ctx, s, kind) {
   return textWidth(ctx, kind === "mark3" ? "5G" : "4G", sysFont(8.6 * s));
 }
 
-function wifiSectorPath(ctx, cx, cy, r) {
-  ctx.beginPath();
-  ctx.moveTo(cx, cy);
-  ctx.arc(cx, cy, r, Math.PI * 1.25, Math.PI * 1.75);
-  ctx.closePath();
-}
+const WIFI_STYLE = {
+  1: { r: [7.4, 5, 2.6], st: 2.1, dot: 1.5 },
+  2: { r: [8.0, 5.5, 3.0], st: 2.3, dot: 1.7 },
+  3: { r: [8.6, 6.0, 3.2], st: 2.5, dot: 2.0 },
+  4: { r: [7.0, 4.7, 2.4], st: 1.8, dot: 1.4 },
+  5: { r: [7.6, 5.1, 2.6], st: 1.7, dot: 1.3 },
+  6: { r: [8.3, 5.5, 2.8], st: 2.8, dot: 1.8 },
+  7: { r: [7.3, 4.9, 2.5], st: 2.0, dot: 1.5 },
+  8: { r: [6.7, 4.5, 2.3], st: 1.5, dot: 1.2 },
+  9: { r: [6.9, 4.6, 2.4], st: 1.3, dot: 1.0 },
+  10: { r: [7.6, 5.1, 2.6], st: 1.9, dot: 1.4 },
+};
 
 function drawWifi(ctx, x, cy, scale, color, strength, style) {
   const s = scale;
-  const cx = x + 7.5 * s;
+  const sp = WIFI_STYLE[style] || WIFI_STYLE[1];
+  const cx = x + 10 * s;
+  const apex = cy + 3.4 * s;
   ctx.save();
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
   ctx.lineCap = "round";
-  const arcs = (radii, lw, apex) => {
-    ctx.lineWidth = lw * s;
-    radii.forEach((r, i) => {
-      ctx.globalAlpha = strength >= radii.length - i ? 1 : 0.22;
-      ctx.beginPath();
-      ctx.arc(cx, apex, r * s, Math.PI * 1.24, Math.PI * 1.76);
-      ctx.stroke();
-    });
-    ctx.globalAlpha = strength > 0 ? 1 : 0.22;
+  ctx.lineWidth = sp.st * s;
+  sp.r.forEach((r, i) => {
+    ctx.globalAlpha = strength >= sp.r.length - i ? 1 : 0.22;
     ctx.beginPath();
-    ctx.arc(cx, apex + 1.6 * s, 1.5 * s, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-  };
-  if (style === 2) {
-    const apexY = cy + 5.5 * s;
-    ctx.globalAlpha = 0.25;
-    wifiSectorPath(ctx, cx, apexY, 8 * s);
-    ctx.fill();
-    ctx.globalAlpha = strength > 0 ? 1 : 0.25;
-    const frac = [0, 0.42, 0.72, 1][Math.max(0, Math.min(3, strength))];
-    if (frac > 0) {
-      wifiSectorPath(ctx, cx, apexY, 8 * s * frac);
-      ctx.fill();
-    }
-  } else if (style === 3) {
-    ctx.globalAlpha = strength > 0 ? 1 : 0.25;
-    ctx.beginPath();
-    ctx.moveTo(cx - 7 * s, cy - 4.5 * s);
-    ctx.lineTo(cx + 7 * s, cy - 4.5 * s);
-    ctx.lineTo(cx, cy + 5.5 * s);
-    ctx.closePath();
-    ctx.fill();
-  } else if (style === 4) {
-    ctx.globalAlpha = strength > 0 ? 1 : 0.25;
-    wifiSectorPath(ctx, cx, cy + 5.5 * s, 8 * s);
-    ctx.moveTo(cx + 2.2 * s, cy + 5.5 * s);
-    ctx.arc(cx, cy + 5.5 * s, 2.2 * s, 0, Math.PI * 2);
-    ctx.fill("evenodd");
-  } else if (style === 5) {
-    const dim = "#c4c8cb";
-    ctx.lineWidth = 2.6 * s;
-    [[7, 3], [4.6, 2]].forEach(([r, level]) => {
-      ctx.strokeStyle = strength >= level ? color : dim;
-      ctx.beginPath();
-      ctx.arc(cx, cy + 3.6 * s, r * s, Math.PI * 1.22, Math.PI * 1.78);
-      ctx.stroke();
-    });
-    ctx.fillStyle = strength > 0 ? color : dim;
-    ctx.beginPath();
-    ctx.arc(cx, cy + 5.2 * s, 1.6 * s, 0, Math.PI * 2);
-    ctx.fill();
-  } else if (style === 6) {
-    arcs([2.4, 4.6, 6.8, 9], 2, cy + 3.6 * s);
-  } else if (style === 7) {
-    arcs([2.6, 5, 7.4], 2.1, cy + 3.4 * s);
-    ctx.lineWidth = 1.8 * s;
-    ctx.beginPath();
-    ctx.moveTo(x + 12.6 * s, cy - 3.4 * s);
-    ctx.lineTo(x + 12.6 * s, cy + 0.6 * s);
-    ctx.moveTo(x + 10.6 * s, cy - 1.4 * s);
-    ctx.lineTo(x + 14.6 * s, cy - 1.4 * s);
+    ctx.arc(cx, apex, r * s, Math.PI * 1.24, Math.PI * 1.76);
     ctx.stroke();
-  } else if (style === 8) {
-    ctx.globalAlpha = strength > 0 ? 1 : 0.25;
-    wifiSectorPath(ctx, cx, cy + 5.5 * s, 8.4 * s);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-    punch(ctx, () => {
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - 1.6 * s);
-      ctx.lineTo(cx + 2 * s, cy + 0.6 * s);
-      ctx.lineTo(cx - 2 * s, cy + 0.6 * s);
-      ctx.closePath();
-      ctx.moveTo(cx, cy + 4.4 * s);
-      ctx.lineTo(cx + 2 * s, cy + 2.2 * s);
-      ctx.lineTo(cx - 2 * s, cy + 2.2 * s);
-      ctx.closePath();
-      ctx.fill();
-    });
-  } else {
-    arcs([2.6, 5, 7.4], 2.1, cy + 3.4 * s);
-  }
+  });
+  ctx.globalAlpha = strength > 0 ? 1 : 0.22;
+  ctx.beginPath();
+  ctx.arc(cx, apex + 1.6 * s, sp.dot * s, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
   ctx.restore();
 }
 
@@ -828,6 +742,121 @@ function punch(ctx, fn) {
   ctx.restore();
 }
 
+function alarmIcon(ctx, x, cy, s, o) {
+  const cx = x + 6.5 * s;
+  if (o.feet) {
+    ctx.lineWidth = 1.9 * s;
+    ctx.beginPath();
+    ctx.moveTo(x + 3.2 * s, cy + 4.8 * s);
+    ctx.lineTo(x + 2.1 * s, cy + 6.2 * s);
+    ctx.moveTo(x + 9.8 * s, cy + 4.8 * s);
+    ctx.lineTo(x + 10.9 * s, cy + 6.2 * s);
+    ctx.stroke();
+  }
+  if (o.ears) {
+    ctx.lineWidth = 1.9 * s;
+    ctx.beginPath();
+    ctx.moveTo(x + 2.5 * s, cy - 5 * s);
+    ctx.lineTo(x + 4.5 * s, cy - 6.6 * s);
+    ctx.moveTo(x + 10.5 * s, cy - 5 * s);
+    ctx.lineTo(x + 8.5 * s, cy - 6.6 * s);
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.arc(cx, cy, 5.2 * s, 0, Math.PI * 2);
+  if (o.fill) ctx.fill();
+  else ctx.stroke();
+  if (o.hand === "punch") {
+    punch(ctx, () => {
+      ctx.lineWidth = 1.5 * s;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.sin(o.angle) * 3 * s, cy - Math.cos(o.angle) * 3 * s);
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.sin(o.angle + 0.95) * 2 * s, cy - Math.cos(o.angle + 0.95) * 2 * s);
+      ctx.stroke();
+    });
+  } else {
+    ctx.lineWidth = 1.1 * s;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.sin(o.angle) * 3 * s, cy - Math.cos(o.angle) * 3 * s);
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.sin(o.angle + 0.95) * 2 * s, cy - Math.cos(o.angle + 0.95) * 2 * s);
+    ctx.stroke();
+  }
+}
+
+function btGlyph(ctx, x, cy, s, lw) {
+  ctx.lineWidth = lw * s;
+  ctx.beginPath();
+  ctx.moveTo(x + 3.6 * s, cy - 3.2 * s);
+  ctx.lineTo(x + 9.6 * s, cy + 3 * s);
+  ctx.lineTo(x + 6.5 * s, cy + 5.6 * s);
+  ctx.lineTo(x + 6.5 * s, cy - 5.6 * s);
+  ctx.lineTo(x + 9.6 * s, cy - 3 * s);
+  ctx.lineTo(x + 3.6 * s, cy + 3.2 * s);
+  ctx.stroke();
+}
+
+function speedArrowIcon(ctx, x, cy, s, o) {
+  const w = (o.w || 2.8) * s;
+  const h = (o.h || 5.4) * s;
+  const gap = (o.gap || 2.0) * s;
+  ctx.beginPath();
+  ctx.moveTo(x + gap, cy + h / 2);
+  ctx.lineTo(x + gap + w, cy + h / 2);
+  ctx.lineTo(x + gap + w / 2, cy - h / 2);
+  ctx.closePath();
+  ctx.fill();
+  const x2 = x + gap + w + gap;
+  ctx.beginPath();
+  ctx.moveTo(x2, cy - h / 2);
+  ctx.lineTo(x2 + w, cy - h / 2);
+  ctx.lineTo(x2 + w / 2, cy + h / 2);
+  ctx.closePath();
+  ctx.fill();
+  if (o.dot) {
+    ctx.beginPath();
+    ctx.arc(x2 + w / 2, cy, (o.dot || 0.7) * s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  if (o.baseline) {
+    ctx.beginPath();
+    ctx.moveTo(x + gap, cy + h / 2 + 1.6 * s);
+    ctx.lineTo(x2 + w, cy + h / 2 + 1.6 * s);
+    ctx.lineWidth = 0.9 * s;
+    ctx.stroke();
+  }
+}
+
+function simCardIcon(ctx, x, cy, s, o, color) {
+  const w = o.w * s;
+  const h = o.h * s;
+  const r = o.r * s;
+  const n = o.n * s;
+  roundedRect(ctx, x, cy - h / 2, w, h, r);
+  ctx.fill();
+  punch(ctx, () => {
+    ctx.beginPath();
+    ctx.moveTo(x + n, cy - h / 2);
+    ctx.lineTo(x + r, cy - h / 2);
+    ctx.lineTo(x + r, cy - h / 2 + n);
+    ctx.closePath();
+    ctx.fill();
+  });
+  ctx.strokeStyle = color;
+  ctx.setLineDash([1.4 * s, 1.1 * s]);
+  ctx.lineWidth = 0.9 * s;
+  for (let i = 0; i < o.lines; i += 1) {
+    ctx.beginPath();
+    ctx.moveTo(x + r * 1.4, cy + h / 2 - (1.4 + i * 1.6) * s);
+    ctx.lineTo(x + w - r * 1.4, cy + h / 2 - (1.4 + i * 1.6) * s);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+}
+
 function drawOtherIcon(ctx, id, x, cy, s, color) {
   ctx.save();
   ctx.strokeStyle = color;
@@ -885,6 +914,10 @@ function drawOtherIcon(ctx, id, x, cy, s, color) {
     ctx.arc(x + 7.5 * s, cy - 1 * s, 0.9 * s, 0, Math.PI * 2);
     ctx.fill();
   } else if (id === "alarm1") {
+    alarmIcon(ctx, x, cy, s, { ears: true, feet: true, fill: true, hand: "punch", angle: -0.5 });
+  } else if (id === "alarm2") {
+    alarmIcon(ctx, x, cy, s, { ears: true, feet: false, fill: true, hand: "punch", angle: 0.5 });
+  } else if (id === "alarm3") {
     ctx.lineWidth = 1.9 * s;
     ctx.beginPath();
     ctx.moveTo(x + 2.5 * s, cy - 5 * s);
@@ -896,28 +929,66 @@ function drawOtherIcon(ctx, id, x, cy, s, color) {
     ctx.moveTo(x + 9.8 * s, cy + 4.8 * s);
     ctx.lineTo(x + 10.9 * s, cy + 6.2 * s);
     ctx.stroke();
+    alarmIcon(ctx, x, cy, s, { ears: false, feet: false, fill: false, hand: "line", angle: 0.8 });
+  } else if (id === "alarm4") {
+    alarmIcon(ctx, x, cy, s, { ears: false, feet: false, fill: true, hand: "punch", angle: 1.3 });
+  } else if (id === "alarm5") {
+    alarmIcon(ctx, x, cy, s, { ears: true, feet: false, fill: true, hand: "punch", angle: 0.2 });
+  } else if (id === "bluetooth1") {
+    btGlyph(ctx, x, cy, s, 1.7);
+  } else if (id === "bluetooth2") {
+    btGlyph(ctx, x, cy, s, 1.7);
+    ctx.lineWidth = 1.2 * s;
     ctx.beginPath();
-    ctx.arc(x + 6.5 * s, cy, 5.2 * s, 0, Math.PI * 2);
+    ctx.arc(x + 11 * s, cy - 2.8 * s, 2.3 * s, -Math.PI * 0.34, Math.PI * 0.34);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x + 12.6 * s, cy - 2.8 * s, 2.3 * s, -Math.PI * 0.34, Math.PI * 0.34);
+    ctx.stroke();
+  } else if (id === "bluetooth3") {
+    btGlyph(ctx, x, cy, s, 1.15);
+  } else if (id === "bluetooth4") {
+    btGlyph(ctx, x, cy, s, 1.7);
+    ctx.fillStyle = color;
+    ctx.lineWidth = 1.1 * s;
+    ctx.strokeStyle = color;
+    roundedRect(ctx, x + 10.4 * s, cy + 3.4 * s, 2.4 * s, 0.9 * s, 0.45 * s);
+    ctx.fill();
+    roundedRect(ctx, x + 3.6 * s, cy - 6.8 * s, 0.9 * s, 2.4 * s, 0.45 * s);
+    ctx.fill();
+  } else if (id === "mute2") {
+    ctx.beginPath();
+    ctx.arc(x + 6.5 * s, cy - 0.8 * s, 4.4 * s, Math.PI, 0);
+    ctx.lineTo(x + 10.9 * s, cy + 2.6 * s);
+    ctx.lineTo(x + 2.1 * s, cy + 2.6 * s);
+    ctx.closePath();
     ctx.fill();
     punch(ctx, () => {
-      ctx.lineWidth = 1.5 * s;
+      ctx.lineWidth = 1.35 * s;
       ctx.beginPath();
-      ctx.moveTo(x + 6.5 * s, cy);
-      ctx.lineTo(x + 6.5 * s, cy - 3 * s);
-      ctx.moveTo(x + 6.5 * s, cy);
-      ctx.lineTo(x + 8.7 * s, cy + 1.3 * s);
+      ctx.moveTo(x + 3.1 * s, cy - 3.2 * s);
+      ctx.lineTo(x + 10.4 * s, cy + 3.1 * s);
+      ctx.moveTo(x + 4.6 * s, cy - 3.9 * s);
+      ctx.lineTo(x + 11 * s, cy + 3.6 * s);
       ctx.stroke();
     });
-  } else if (id === "bluetooth1") {
-    ctx.lineWidth = 1.7 * s;
-    ctx.beginPath();
-    ctx.moveTo(x + 3.4 * s, cy - 3.2 * s);
-    ctx.lineTo(x + 9.6 * s, cy + 3 * s);
-    ctx.lineTo(x + 6.5 * s, cy + 5.6 * s);
-    ctx.lineTo(x + 6.5 * s, cy - 5.6 * s);
-    ctx.lineTo(x + 9.6 * s, cy - 3 * s);
-    ctx.lineTo(x + 3.4 * s, cy + 3.2 * s);
-    ctx.stroke();
+  } else if (id === "speedIcon1") {
+    speedArrowIcon(ctx, x, cy, s, { w: 2.8, h: 5.4, gap: 2.0 });
+  } else if (id === "speedIcon2") {
+    speedArrowIcon(ctx, x, cy, s, { w: 2.4, h: 4.6, gap: 2.6 });
+  } else if (id === "speedIcon3") {
+    speedArrowIcon(ctx, x, cy, s, { w: 2.8, h: 5.4, gap: 2.0, baseline: true });
+  } else if (id === "speedIcon4") {
+    speedArrowIcon(ctx, x, cy, s, { w: 3.2, h: 5.8, gap: 2.2, dot: 0.8 });
+  } else if (id === "dualsim1") {
+    simCardIcon(ctx, x, cy, s, { w: 9, h: 12, r: 2.6, n: 3.4, lines: 1 }, color);
+  } else if (id === "dualsim2") {
+    simCardIcon(ctx, x, cy, s, { w: 10.4, h: 12, r: 2.6, n: 3.4, lines: 2 }, color);
+  } else if (id === "dualsim3") {
+    ctx.globalAlpha = 0.55;
+    simCardIcon(ctx, x + 2.6 * s, cy + 1.9 * s, s, { w: 9, h: 12, r: 2.6, n: 3.4, lines: 1 }, color);
+    ctx.globalAlpha = 1;
+    simCardIcon(ctx, x, cy, s, { w: 9, h: 12, r: 2.6, n: 3.4, lines: 1 }, color);
   } else if (id === "mute1") {
     ctx.beginPath();
     ctx.arc(x + 6.5 * s, cy - 0.8 * s, 4.4 * s, Math.PI, 0);
@@ -1196,8 +1267,8 @@ function buildTopElements(ctx, w, c, customImages) {
     add(`custom${i + 1}`, 1 + i, 15 * gs, (x, cy, s) => drawNotice(ctx, "custom", x + 7.5 * s, cy, s, c.iconColor, ci.img));
   });
 
-  const OTHER_WIDTHS = { headphone1: 13, vibrate1: 13.6, nfc1: 13.6, eyecare1: 13, alarm1: 13, bluetooth1: 13, mute1: 13, speaker1: 12.4, gauge1: 13, nosim1: 10.4 };
-  const others = ["headphone1", "vibrate1", "nfc1", "eyecare1", "alarm1", "bluetooth1", "mute1", "speaker1", "gauge1", "nosim1"];
+  const OTHER_WIDTHS = { headphone1: 13, vibrate1: 13.6, nfc1: 13.6, eyecare1: 13, alarm1: 13, alarm2: 13, alarm3: 13, alarm4: 13, alarm5: 13, bluetooth1: 13, bluetooth2: 13, bluetooth3: 13, bluetooth4: 13, mute1: 13, mute2: 13, speaker1: 12.4, gauge1: 13, nosim1: 10.4, speedIcon1: 15, speedIcon2: 15, speedIcon3: 15, speedIcon4: 15, dualsim1: 12, dualsim2: 12, dualsim3: 12 };
+  const others = ["headphone1", "vibrate1", "nfc1", "eyecare1", "alarm1", "alarm2", "alarm3", "alarm4", "alarm5", "bluetooth1", "bluetooth2", "bluetooth3", "bluetooth4", "mute1", "mute2", "speaker1", "gauge1", "nosim1", "speedIcon1", "speedIcon2", "speedIcon3", "speedIcon4", "dualsim1", "dualsim2", "dualsim3"];
   others.forEach((id, i) => add(id, 10 + i, OTHER_WIDTHS[id] * gs + (i < others.length - 1 ? c.otherGap * gs : 0), (x, cy, s) => drawOtherIcon(ctx, id, x, cy, s, c.iconColor)));
 
   [["mark1", 20], ["mark2", 21], ["mark5", 21.5], ["mark3", 22], ["mark4", 23]].forEach(([id, order]) => {
@@ -1252,10 +1323,10 @@ function buildTopElements(ctx, w, c, customImages) {
 
   add("signal6", 40, signalShapeWidth(ctx, 6, gs, c), (x, cy, s) => drawSignalShape(ctx, x, cy, s, c.sim1Bars, c.iconColor, 6, c));
   add("signal7", 41, signalShapeWidth(ctx, 7, gs, c), (x, cy, s) => drawSignalShape(ctx, x, cy, s, c.sim1Bars, c.iconColor, 7, c));
-  add("signal8", 42, 13 * gs, (x, cy, s) => drawSignalShape(ctx, x, cy, s, c.sim1Bars, c.iconColor, 8, c));
+  add("signal8", 42, signalShapeWidth(ctx, 8, gs, c), (x, cy, s) => drawSignalShape(ctx, x, cy, s, c.sim1Bars, c.iconColor, 8, c));
 
   add("wifiArrow1", wifiOrder, 9 * gs, (x, cy, s) => drawWifiArrows(ctx, x, cy, s, c.iconColor));
-  add("wifi", wifiOrder + 1, 15 * gs, (x, cy, s) => drawWifi(ctx, x, cy, s, c.iconColor, c.wifiStrength, c.wifiStyle));
+  add("wifi", wifiOrder + 1, 20 * gs, (x, cy, s) => drawWifi(ctx, x, cy, s, c.iconColor, c.wifiStrength, c.wifiStyle));
 
   const extras = ["powersave", "batt11", "batt12", "chargeMark1", "batt13", "batt14", "batt15", "batt16"];
   extras.forEach((id, i) => add(id, 50 + i, extraBatteryWidth(id, gs), (x, cy, s) => drawExtraBattery(ctx, id, x, cy, s, c)));
@@ -1292,6 +1363,17 @@ function drawTop(ctx, img, w, h, c, customImages) {
   const metrics = getDeviceMetrics(c.deviceType);
   const scale = Math.max(0.62, w / 390) * metrics.top.textScale;
   coverRegion(ctx, img, 0, 0, w, th, c.topStyle, c.topColor, c.topOpacity);
+
+  // Draw time + glyphs on a transparent layer so punch() leaves real holes
+  // that reveal the background instead of black pixels on an opaque canvas.
+  const pw = ctx.canvas.width;
+  const ph = ctx.canvas.height;
+  const layer = document.createElement("canvas");
+  layer.width = pw;
+  layer.height = ph;
+  const g = layer.getContext("2d");
+  g.scale(pw / w, ph / h);
+
   const cy = th / 2 + metrics.top.centerOffset * scale;
   const gap = metrics.top.groupGap * scale;
   const margin = metrics.top.sideMargin * scale;
@@ -1302,24 +1384,24 @@ function drawTop(ctx, img, w, h, c, customImages) {
   if (c.showSuffix && c.timeSuffix) parts.push(c.timeSuffix);
   if (c.showCarrier && c.carrier) parts.push(c.carrier);
   const tGap = c.timeGap * scale;
-  const widths = parts.map((p) => textWidth(ctx, p, timeFont));
+  const widths = parts.map((p) => textWidth(g, p, timeFont));
   const totalW = widths.reduce((a, b) => a + b, 0) + tGap * (parts.length - 1);
 
-  ctx.fillStyle = c.iconColor;
-  ctx.font = timeFont;
-  ctx.textBaseline = "middle";
+  g.fillStyle = c.iconColor;
+  g.font = timeFont;
+  g.textBaseline = "middle";
   let tx;
   if (c.timePosition === "center") tx = w / 2 - totalW / 2;
   else if (c.timePosition === "right") tx = w * (1 - c.timeX / 100) - totalW;
   else tx = w * c.timeX / 100;
-  ctx.textAlign = "left";
+  g.textAlign = "left";
   let px = tx;
   parts.forEach((p, i) => {
-    ctx.fillText(p, px, cy + c.timeOffsetY * scale);
+    g.fillText(p, px, cy + c.timeOffsetY * scale);
     px += widths[i] + tGap;
   });
 
-  const els = buildTopElements(ctx, w, c, customImages);
+  const els = buildTopElements(g, w, c, customImages);
   const lefts = els.filter((e) => e.side === "left");
   const rights = els.filter((e) => e.side !== "left");
   const pairGap = (a, b) => {
@@ -1341,6 +1423,8 @@ function drawTop(ctx, img, w, h, c, customImages) {
     e.draw(rx, cy);
     rx -= pairGap(e, rev[i + 1]);
   });
+
+  ctx.drawImage(layer, 0, 0);
 }
 
 const NAV_PATH_DATA = {
@@ -1825,7 +1909,7 @@ export default function Home() {
 
   const item = (id) => getItem(config, id);
   const wifiStyleName = WIFI_STYLES.find((s) => s[0] === config.wifiStyle)?.[1] || "WiFi 1";
-  const otherOn = ["headphone1", "vibrate1", "nfc1", "eyecare1", "alarm1", "bluetooth1", "mute1", "speaker1", "gauge1", "nosim1"].filter((id) => item(id).on).length;
+  const otherOn = ["headphone1", "vibrate1", "nfc1", "eyecare1", "alarm1", "alarm2", "alarm3", "alarm4", "alarm5", "bluetooth1", "bluetooth2", "bluetooth3", "bluetooth4", "mute1", "mute2", "speaker1", "gauge1", "nosim1", "speedIcon1", "speedIcon2", "speedIcon3", "speedIcon4", "dualsim1", "dualsim2", "dualsim3"].filter((id) => item(id).on).length;
 
   const simCard = (n) => {
     const network = n === 1 ? config.sim1Network : config.sim2Network;
@@ -1980,7 +2064,7 @@ export default function Home() {
                 <Range label="信号线条粗细" value={config.signalLineWidth} min={1.5} max={6} step={0.1} suffix="px" onChange={(v) => patch("signalLineWidth", v)} />
               </div>
               <SelectField label="信号线条端点" value={config.signalCap} options={[["round", "圆角"], ["square", "直角"]]} onChange={(v) => patch("signalCap", v)} />
-              <p className="note-line">三角形信号保持整体形状，不使用线条间距、粗细和圆角设置。</p>
+              <p className="note-line">信号图形已按示例图还原：10 种阶梯柱样式，点亮格数随 SIM 信号强度联动。</p>
               {simCard(1)}
               {config.simCount === 2 && simCard(2)}
               <div className="field-pair">
@@ -2006,12 +2090,12 @@ export default function Home() {
                 <ItemCard badge="K/s" title="网速 1 · 自定义文字" item={item("speed1")} onPatch={(p) => patchItem("speed1", p)} onReset={() => resetItem("speed1")} />
                 <ItemCard badge="HD" title="网络标志 1 · VoLTE / HD" item={item("mark1")} onPatch={(p) => patchItem("mark1", p)} onReset={() => resetItem("mark1")} />
                 <ItemCard badge="KB/s" title={`网速 2 · ${config.speed2Line1 || "4.81"} ${config.speed2Line2 || "KB/s"} 双行`} item={item("speed2")} onPatch={(p) => patchItem("speed2", p)} onReset={() => resetItem("speed2")} />
-                <ItemCard badge="▮" title="信号 6 · 四格直柱" item={item("signal6")} onPatch={(p) => patchItem("signal6", p)} onReset={() => resetItem("signal6")} />
-                <ItemCard badge="▨" title="信号 7 · 五格斜坡" item={item("signal7")} onPatch={(p) => patchItem("signal7", p)} onReset={() => resetItem("signal7")} />
+                <ItemCard badge="▮" title="信号 6 · 四格宽柱" item={item("signal6")} onPatch={(p) => patchItem("signal6", p)} onReset={() => resetItem("signal6")} />
+                <ItemCard badge="▮" title="信号 7 · 四格大柱" item={item("signal7")} onPatch={(p) => patchItem("signal7", p)} onReset={() => resetItem("signal7")} />
                 <ItemCard badge="Vo" title="网络标志 2 · Vo / LTE 叠放" item={item("mark2")} onPatch={(p) => patchItem("mark2", p)} onReset={() => resetItem("mark2")} />
                 <ItemCard badge="HD" title="网络标志 5 · HD 双卡 1/2" item={item("mark5")} onPatch={(p) => patchItem("mark5", p)} onReset={() => resetItem("mark5")} />
                 <ItemCard badge="5G" title="网络标志 3 · 5G 文字" item={item("mark3")} onPatch={(p) => patchItem("mark3", p)} onReset={() => resetItem("mark3")} />
-                <ItemCard badge="◺" title="信号 8 · 参考圆三角形" item={item("signal8")} onPatch={(p) => patchItem("signal8", p)} onReset={() => resetItem("signal8")} />
+                <ItemCard badge="▮" title="信号 8 · 七格粗柱" item={item("signal8")} onPatch={(p) => patchItem("signal8", p)} onReset={() => resetItem("signal8")} />
                 <ItemCard badge="4G" title="网络标志 4 · 4G 文字" item={item("mark4")} onPatch={(p) => patchItem("mark4", p)} onReset={() => resetItem("mark4")} />
               </div>
             </>}
@@ -2070,11 +2154,26 @@ export default function Home() {
                 <ItemCard badge="N" title="NFC 1 · 方框斜杠" item={item("nfc1")} onPatch={(p) => patchItem("nfc1", p)} onReset={() => resetItem("nfc1")} />
                 <ItemCard badge="眼" title="护眼 1 · 实心掏空瞳孔" item={item("eyecare1")} onPatch={(p) => patchItem("eyecare1", p)} onReset={() => resetItem("eyecare1")} />
                 <ItemCard badge="钟" title="闹钟 1 · 实心掏空指针" item={item("alarm1")} onPatch={(p) => patchItem("alarm1", p)} onReset={() => resetItem("alarm1")} />
+                <ItemCard badge="钟" title="闹钟 2 · 实心短针" item={item("alarm2")} onPatch={(p) => patchItem("alarm2", p)} onReset={() => resetItem("alarm2")} />
+                <ItemCard badge="钟" title="闹钟 3 · 空心指针" item={item("alarm3")} onPatch={(p) => patchItem("alarm3", p)} onReset={() => resetItem("alarm3")} />
+                <ItemCard badge="钟" title="闹钟 4 · 实心单耳" item={item("alarm4")} onPatch={(p) => patchItem("alarm4", p)} onReset={() => resetItem("alarm4")} />
+                <ItemCard badge="钟" title="闹钟 5 · 实心斜针" item={item("alarm5")} onPatch={(p) => patchItem("alarm5", p)} onReset={() => resetItem("alarm5")} />
                 <ItemCard badge="蓝" title="蓝牙 1 · 标准" item={item("bluetooth1")} onPatch={(p) => patchItem("bluetooth1", p)} onReset={() => resetItem("bluetooth1")} />
+                <ItemCard badge="蓝" title="蓝牙 2 · 带波纹" item={item("bluetooth2")} onPatch={(p) => patchItem("bluetooth2", p)} onReset={() => resetItem("bluetooth2")} />
+                <ItemCard badge="蓝" title="蓝牙 3 · 细线" item={item("bluetooth3")} onPatch={(p) => patchItem("bluetooth3", p)} onReset={() => resetItem("bluetooth3")} />
+                <ItemCard badge="蓝" title="蓝牙 4 · 带信号条" item={item("bluetooth4")} onPatch={(p) => patchItem("bluetooth4", p)} onReset={() => resetItem("bluetooth4")} />
                 <ItemCard badge="静" title="静音 1 · 铃铛斜杠" item={item("mute1")} onPatch={(p) => patchItem("mute1", p)} onReset={() => resetItem("mute1")} />
-                <ItemCard badge="喇" title="静音 2 · 喇叭斜杠" item={item("speaker1")} onPatch={(p) => patchItem("speaker1", p)} onReset={() => resetItem("speaker1")} />
+                <ItemCard badge="静" title="静音 2 · 铃铛双杠" item={item("mute2")} onPatch={(p) => patchItem("mute2", p)} onReset={() => resetItem("mute2")} />
+                <ItemCard badge="喇" title="静音 3 · 喇叭斜杠" item={item("speaker1")} onPatch={(p) => patchItem("speaker1", p)} onReset={() => resetItem("speaker1")} />
                 <ItemCard badge="表" title="性能 1 · 仪表指针" item={item("gauge1")} onPatch={(p) => patchItem("gauge1", p)} onReset={() => resetItem("gauge1")} />
                 <ItemCard badge="卡" title="无 SIM · 卡托感叹号" item={item("nosim1")} onPatch={(p) => patchItem("nosim1", p)} onReset={() => resetItem("nosim1")} />
+                <ItemCard badge="速" title="网速 1 · 上/下箭头" item={item("speedIcon1")} onPatch={(p) => patchItem("speedIcon1", p)} onReset={() => resetItem("speedIcon1")} />
+                <ItemCard badge="速" title="网速 2 · 紧凑箭头" item={item("speedIcon2")} onPatch={(p) => patchItem("speedIcon2", p)} onReset={() => resetItem("speedIcon2")} />
+                <ItemCard badge="速" title="网速 3 · 带底线" item={item("speedIcon3")} onPatch={(p) => patchItem("speedIcon3", p)} onReset={() => resetItem("speedIcon3")} />
+                <ItemCard badge="速" title="网速 4 · 带圆点" item={item("speedIcon4")} onPatch={(p) => patchItem("speedIcon4", p)} onReset={() => resetItem("speedIcon4")} />
+                <ItemCard badge="卡" title="双卡 1 · SIM 带缺角" item={item("dualsim1")} onPatch={(p) => patchItem("dualsim1", p)} onReset={() => resetItem("dualsim1")} />
+                <ItemCard badge="卡" title="双卡 2 · SIM 双线" item={item("dualsim2")} onPatch={(p) => patchItem("dualsim2", p)} onReset={() => resetItem("dualsim2")} />
+                <ItemCard badge="卡" title="双卡 3 · 叠加双卡" item={item("dualsim3")} onPatch={(p) => patchItem("dualsim3", p)} onReset={() => resetItem("dualsim3")} />
               </div>
             </>}
 
