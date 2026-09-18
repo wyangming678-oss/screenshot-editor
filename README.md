@@ -34,11 +34,11 @@ npm run build
 
 仓库内置工作流 `.github/workflows/deploy.yml`，推到 `main` 分支后会自动构建并发布到 GitHub Pages。
 
-首次使用需在仓库 Settings → Pages → Build and deployment 里把 **Source** 设为 **GitHub Actions**（工作流中的 `configure-pages` 也会尝试自动开启）。
+首次使用需在仓库 **Settings → Pages → Build and deployment** 里把 **Source** 设为 **GitHub Actions**（这一步必须手动做一次，工作流不会自动开启 Pages）。
 
 访问地址：
 
 - 用户/组织主页仓库（仓库名为 `<用户名>.github.io`）：`https://<用户名>.github.io/`
 - 普通项目仓库：`https://<用户名>.github.io/<仓库名>/`
 
-`next.config.mjs` 会根据 `GITHUB_REPOSITORY` 自动设置 `basePath`，因此项目仓库也能正确加载静态资源；本地构建时不加前缀。
+`next.config.mjs` 会根据 `GITHUB_REPOSITORY` 自动设置 `basePath`，因此项目仓库也能正确加载静态资源；本地构建时不加前缀。工作流不使用 `configure-pages`，避免它自动改写配置时出错。
